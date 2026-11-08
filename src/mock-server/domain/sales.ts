@@ -388,6 +388,9 @@ export function addPayment(ctx: Ctx, sale: Sale, input: AddPaymentInput) {
   const rate = currentRate(db);
   const session = openSessionFor(db, sale.terminalId);
   if (input.method === "CASH" && !session) return fail(422, "VALIDATION_ERROR", "Cash payment requires an open cashier session.");
+  if (input.method === "CASH" && session && session.cashierId !== sale.cashierId) {
+    return fail(422, "VALIDATION_ERROR", `This drawer is in ${session.cashierName}'s open session. Use your own terminal session.`);
+  }
   if (config.requiresReference && !input.reference?.trim()) return validation("reference", `A reference is required for ${config.name}.`);
   if (input.reference) {
     const duplicate = db.sales.flatMap((s) => s.payments).find(
@@ -486,6 +489,10 @@ export function finalizeSale(ctx: Ctx, sale: Sale, terminal: Terminal) {
   if (sale.payments.some((p) => p.status === "PENDING")) fail(422, "PAYMENT_INCOMPLETE", "Payment still pending — waiting for confirmation.");
   if (sale.balance > 0.005) fail(422, "PAYMENT_INCOMPLETE", `Balance of ${sale.balance.toFixed(2)} USD is still due.`);
 
+  const sellingFrom = getLocation(db, terminal.defaultLocationId);
+  if (db.counts.some((c) => c.warehouseId === sellingFrom.warehouseId && c.freeze && ["OPEN", "COUNTING", "REVIEW", "APPROVED"].includes(c.status))) {
+    fail(409, "LOCATION_FROZEN", "Sales are blocked while this warehouse is frozen for a stocktake.");
+  }
   const needed = new Map<string, number>();
   for (const line of sale.lines) {
     const product = getProduct(db, line.productId);

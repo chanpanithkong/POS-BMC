@@ -1,36 +1,95 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ABC Mart POS and Inventory (frontend)
 
-## Getting Started
+Next.js frontend for the POS and Inventory Management System (PIMS-SRS-001). It runs today against an in-browser mock server and is built to move to FastAPI and PostgreSQL without rewriting screens.
 
-First, run the development server:
+## Run it
+
+```bash
+npm install
+```
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000. Sample data is generated once and stored in this browser. Reset it from the account menu.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Demo sign-in
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+**This sign-in is simulated and is not production security.**
 
-## Learn More
+The password for every account is `demo-password`. The login page has one-click buttons for each role.
 
-To learn more about Next.js, take a look at the following resources:
+| Role | Username | POS or approval PIN |
+|---|---|---|
+| Business Owner | owner | 7391 |
+| Store Manager | manager | 2580 |
+| Branch Manager | branch | 3914 |
+| Cashier | cashier | 1593 |
+| Inventory Manager | inventory | 6152 |
+| Purchasing Officer | purchasing | 8247 |
+| Warehouse Staff | warehouse | 6471 |
+| Accountant | accountant | 9162 |
+| Auditor | auditor | 3786 |
+| System Administrator | admin | 4826 |
+| Salesperson | sales | 5038 |
+| Read-only User | viewer | 5429 |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## POS shortcuts
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Key | Action |
+|---|---|
+| F2 | Quantity |
+| F3 | Focus search |
+| F4 | Customer |
+| F6 | Line discount |
+| F7 | Price check |
+| F8 | Hold |
+| F9 | Held sales |
+| F12 | Pay |
+| Del | Remove line |
+| Up, Down | Select line |
 
-## Deploy on Vercel
+A keyboard-wedge barcode scanner works without focusing a field.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## How it is organised
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Path | Purpose |
+|---|---|
+| `src/app` | Routes: `(auth)`, `(dashboard)`, and the full-screen `(pos)` |
+| `src/components` | `ui` (shadcn), `layout`, `shared` (table, forms, dialogs), feature components |
+| `src/services` | Typed API functions, one per REST resource |
+| `src/lib/api` | Transport, configuration, error type, wire-format conversion |
+| `src/hooks` | Data fetching and POS commands |
+| `src/stores` | Zustand client state |
+| `src/types` | Domain types |
+| `src/mock-server` | Stand-in backend: routes, business rules, stock ledger, seed |
+| `src/mock-data` | Sample catalogue |
+
+## Moving to the real backend
+
+Every screen calls `src/services`, and every service goes through `apiRequest` in `src/lib/api/client.ts`. Paths follow SRS section 13.
+
+1. Copy `.env.example` to `.env.local`.
+2. Set `NEXT_PUBLIC_API_MODE=live` and `NEXT_PUBLIC_API_URL`.
+3. Implement the routes in FastAPI. `src/mock-server/handlers` is a working reference for each rule, status change and error code.
+
+JSON keys and decimal strings are converted at the HTTP boundary. The mock server's checks are for demonstration only: **all authorisation and business rules must be enforced again in FastAPI.** See the integration limits in `docs/requirements-mapping.md`.
+
+## Requirements coverage
+
+`docs/requirements-mapping.md` maps each of the 293 functional requirements to its screens and says what is implemented, simulated, partial or deferred.
+
+## Checks
+
+```bash
+npx tsc --noEmit
+```
+
+```bash
+npm run lint
+```
+
+```bash
+npm run build
+```

@@ -18,7 +18,6 @@ const LABEL: Record<BarcodeSymbology, string> = { EAN13: "EAN-13", EAN8: "EAN-8"
 export function validateBarcode(value: string, symbology: BarcodeSymbology): string | null {
   if (!value) return "Barcode is required.";
   if (symbology === "CODE128") {
-    // eslint-disable-next-line no-control-regex
     return /^[\x00-\x7f]{1,64}$/.test(value) ? null : "Code 128 values must be plain ASCII, up to 64 characters.";
   }
   const length = LENGTH[symbology] as number;
