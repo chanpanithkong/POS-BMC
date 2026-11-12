@@ -1,0 +1,23 @@
+[project]
+name = "pims-backend"
+version = "0.1.0"
+description = "POS and Inventory Management System API (PIMS-SRS-001)"
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 240
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "scripts", "tests"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["tests"]
+markers = ["db: needs the PostgreSQL test database"]
