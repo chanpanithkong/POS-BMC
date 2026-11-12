@@ -142,34 +142,34 @@ Conventions for every endpoint (SRS 13.1):
 
 | Method | Path | Permission | Phase | Status |
 |---|---|---|---|---|
-| GET POST PATCH DELETE | /suppliers, /suppliers/{id} | purchasing.supplier.manage | 6 |
-| GET POST PATCH DELETE | /purchase-orders, /{id} | purchasing.order.create | 6 |
-| POST | /purchase-orders/{id}/submit, /approve, /reject, /send, /cancel | approve needs purchasing.order.approve, creator excluded | 6 |
-| GET POST DELETE | /goods-receipts, /{id} | purchasing.receipt.create | 6 |
-| POST | /goods-receipts/{id}/post, /approve, /reject | post **IK** | 6 |
-| GET POST | /supplier-invoices, /{id}/payments | purchasing.invoice.manage | 6 |
-| GET POST | /purchase-returns, /{id}/approve, /dispatch, /credit | purchasing.return.manage | 6 |
-| GET POST PATCH DELETE | /customers, /customers/{id} | customers.customer.manage | 6 |
-| POST | /customers/{id}/anonymize | customers.personal_data.manage | 6 |
-| GET POST PATCH DELETE | /customer-groups | customers.customer.manage | 6 |
+| GET POST PATCH DELETE | /suppliers, /suppliers/{id} | purchasing.supplier.manage | 6 | Done, tested |
+| GET POST PATCH DELETE | /purchase-orders, /{id} | purchasing.order.create | 6 | Done, tested |
+| POST | /purchase-orders/{id}/submit, /approve, /reject, /send, /cancel | approve needs purchasing.order.approve, creator excluded | 6 | Done, tested |
+| GET POST DELETE | /goods-receipts, /{id} | purchasing.receipt.create | 6 | Done, tested |
+| POST | /goods-receipts/{id}/post, /approve, /reject | post **IK** | 6 | Done, tested |
+| GET POST | /supplier-invoices, /{id}/payments | purchasing.invoice.manage | 6 | Done, tested |
+| GET POST | /purchase-returns, /{id}/approve, /dispatch, /credit | purchasing.return.manage | 6 | Done, tested |
+| GET POST PATCH DELETE | /customers, /customers/{id} | customers.customer.manage | 6 | Done, tested |
+| POST | /customers/{id}/anonymize | customers.customer.manage + customers.personal_data.view | 6 | Done, tested |
+| GET POST PATCH DELETE | /customer-groups | customers.customer.manage | 6 | Done, tested |
 
 ## Reports and dashboard (RPT, DSH)
 
 | Method | Path | Permission | Phase | Status |
 |---|---|---|---|---|
-| GET | /dashboard | dashboard.dashboard.view | 7 |
-| GET | /reports | Catalogue filtered by permission | 7 |
-| GET | /reports/{id} | Per report, RPT-01 to RPT-34; `format=csv` or `xlsx` for files | 7 |
-| GET | /reports/sales, /reports/inventory, /reports/gross-profit, /reports/cashier-sessions | SRS 13.2 grouped aliases | 7 |
+| GET | /dashboard | dashboard.dashboard.view | 7 | Done, tested |
+| GET | /reports | Catalogue filtered by permission | 7 | Done, tested |
+| GET | /reports/{id} | Per report, RPT-01 to RPT-34; `format=csv` or `xlsx` for files | 7 | Done, tested |
+| GET | /reports/sales, /reports/inventory, /reports/gross-profit, /reports/cashier-sessions | SRS 13.2 grouped aliases | 7 | Done, tested |
 
 ## Advanced (NTF, IMP, EXP, PRM)
 
 | Method | Path | Permission | Phase | Status |
 |---|---|---|---|---|
-| GET POST | /notifications, /notifications/read | Authenticated | 8 |
-| GET | /imports/templates/{type} | imports.import.manage | 8 |
-| POST | /imports/preview, /imports/commit **IK**, /imports/{id}/rollback | imports.import.manage | 8 |
-| GET | /imports | imports.import.manage | 8 |
-| POST | /exports/audit | Authenticated | 8 |
-| GET POST PATCH DELETE | /expenses, /expense-categories | expenses.expense.create, approve | 8 |
-| GET POST PATCH DELETE | /promotions, /coupons | promotions.promotion.manage | 8 (optional) |
+| POST | /exports/audit | Authenticated (browser exports and prints) | 7 | Done, tested |
+| GET POST | /notifications, /notifications/read | Authenticated | 8 | Done, tested |
+| GET | /imports/templates/{type} | imports.import.manage | 8 | Done, tested |
+| POST | /imports/preview, /imports/commit **IK**, /imports/{id}/rollback | imports.import.manage | 8 | Done, tested |
+| GET | /imports | imports.import.manage | 8 | Done, tested |
+| GET POST PATCH DELETE | /expenses, /expense-categories | expenses.expense.create, approve | 8 | Done, tested |
+| GET POST PATCH DELETE | /promotions, /coupons | promotions.promotion.manage | 8 (optional) | Done, tested |

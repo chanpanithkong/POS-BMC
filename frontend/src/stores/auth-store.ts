@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { authBridge } from "@/lib/api/client";
+import { isMockMode } from "@/lib/api/config";
 import { authApi } from "@/services";
 import type { AuthResponse, Permission, SessionUser } from "@/types";
 
@@ -25,6 +26,7 @@ interface AuthState {
 
 function storeToken(token: string | null) {
   authBridge.setToken(token);
+  if (!isMockMode) return; // live API: the access token stays in memory; the refresh cookie restores the session
   try {
     if (token) window.sessionStorage.setItem(TOKEN_KEY, token);
     else window.sessionStorage.removeItem(TOKEN_KEY);
@@ -38,6 +40,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   hydrate: async () => {
     if (get().status === "authenticated") return;
+    if (!isMockMode) {
+      try {
+        const auth = await authApi.refresh();
+        storeToken(auth.accessToken);
+        set({ status: "authenticated", user: auth.user });
+      } catch {
+        storeToken(null);
+        set({ status: "anonymous", user: null });
+      }
+      return;
+    }
     let token: string | null = null;
     try {
       token = window.sessionStorage.getItem(TOKEN_KEY);

@@ -10,8 +10,6 @@ Rules enforced here:
 - Cost fields are returned only to users with inventory.cost.view (BR-SEC-003).
 """
 
-import base64
-import binascii
 import re
 import uuid
 from decimal import Decimal
@@ -20,7 +18,6 @@ from typing import Any
 from sqlalchemy import case, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
 from app.core.exceptions import AppError, Conflict, InvalidStateTransition, NotFound, ValidationFailed
 from app.models import (
     AuditLog,
@@ -32,7 +29,9 @@ from app.models import (
     Product,
     ProductBarcode,
     ProductBranchSetting,
+    ProductSupplier,
     ProductWarehouseSetting,
+    Supplier,
     TaxCode,
     Unit,
     UnitConversion,
@@ -40,7 +39,7 @@ from app.models import (
     WarehouseLocation,
 )
 from app.schemas import catalog as s
-from app.services import pricing
+from app.services import files, pricing
 from app.services.common import allocate, ensure_unique, next_number, owned, plain, record_audit
 from app.services.principal import Principal
 
@@ -53,7 +52,6 @@ TRANSITIONS = {
 }
 SCALAR_FIELDS = ("sku", "name_en", "name_km", "description", "type", "category_id", "brand_id", "base_unit_id", "allow_fraction", "precision", "tax_code_id",
                  "status", "min_selling_price", "track_expiry", "is_favourite")
-IMAGE_TYPES = {b"\xff\xd8\xff": ("image/jpeg", "jpg"), b"\x89PNG\r\n\x1a\n": ("image/png", "png"), b"RIFF": ("image/webp", "webp")}
 MAX_IMAGE_BYTES = 2 * 1024 * 1024
 IMAGE_URL_PREFIX = "/api/v1/files/products/"
 
@@ -92,31 +90,11 @@ async def generate_barcode(db: AsyncSession, actor: Principal) -> dict:
 
 # Images
 
-def store_image(data_url: str) -> str:
-    match = re.fullmatch(r"data:(image/[a-z+]+);base64,([A-Za-z0-9+/=\s]+)", data_url)
-    if not match:
-        raise ValidationFailed("image", "Send a JPEG, PNG or WebP image.")
-    try:
-        raw = base64.b64decode(match.group(2), validate=False)
-    except binascii.Error as exc:
-        raise ValidationFailed("image", "The image could not be read.") from exc
-    if len(raw) > MAX_IMAGE_BYTES:
-        raise ValidationFailed("image", "Images must be 2 MB or less.")
-    kind = next(((mime, ext) for magic, (mime, ext) in IMAGE_TYPES.items() if raw.startswith(magic)), None)
-    if kind is None or (kind[1] == "webp" and raw[8:12] != b"WEBP"):
-        raise ValidationFailed("image", "Use a JPEG, PNG or WebP image.")
-    folder = get_settings().storage_dir / "products"
-    folder.mkdir(parents=True, exist_ok=True)
-    name = f"{uuid.uuid4().hex}.{kind[1]}"
-    (folder / name).write_bytes(raw)
-    return IMAGE_URL_PREFIX + name
-
-
 def normalise_image(value: str | None) -> str | None:
     if not value:
         return None
     if value.startswith("data:"):
-        return store_image(value)
+        return files.store_data_url("products", value, field="image", allowed=("jpg", "png", "webp"), max_bytes=MAX_IMAGE_BYTES)
     if value.startswith(IMAGE_URL_PREFIX) or re.fullmatch(r"https://[^\s]{1,490}", value):
         return value
     raise ValidationFailed("image", "Use an https:// image URL or upload an image.")
@@ -148,7 +126,8 @@ async def product_view(db: AsyncSession, actor: Principal, product: Product) -> 
         stock_settings=_settings_view(product),
         warehouse_settings={w.warehouse_id: _settings_view(w) for w in warehouses},
         branch_activation={b.branch_id: b.active for b in branches},
-        suppliers=[],
+        suppliers=[{"supplier_id": x.supplier_id, "supplier_sku": x.supplier_sku, "purchase_unit_id": x.purchase_unit_id, "cost": x.cost if actor.sees_cost or actor.can("purchasing.order.create") else None,
+                    "lead_time_days": x.lead_time_days, "preferred": x.preferred} for x in await db.scalars(select(ProductSupplier).where(ProductSupplier.product_id == product.id))],
         category_name=category.name_en if category else "",
         brand_name=brand.name if brand else "",
         unit_code=unit.code if unit else "",
@@ -285,8 +264,27 @@ async def _replace_settings(db: AsyncSession, actor: Principal, product: Product
                 raise ValidationFailed("branch_activation", "One or more branches do not exist.")
         await db.execute(delete(ProductBranchSetting).where(ProductBranchSetting.product_id == product.id))
         db.add_all(ProductBranchSetting(product_id=product.id, branch_id=b, active=a) for b, a in data.branch_activation.items())
-    if data.suppliers:
-        raise ValidationFailed("suppliers", "Supplier links become available with purchasing (Phase 6).")
+    if data.suppliers is not None:
+        await _replace_suppliers(db, actor, product, data.suppliers)
+    await db.flush()
+
+
+async def _replace_suppliers(db: AsyncSession, actor: Principal, product: Product, links: list[s.SupplierLinkIn]) -> None:
+    if sum(link.preferred for link in links) > 1:
+        raise ValidationFailed("suppliers", "Only one supplier can be preferred.")
+    units = {product.base_unit_id, *await db.scalars(select(UnitConversion.unit_id).where(UnitConversion.product_id == product.id))}
+    seen = set()
+    for link in links:
+        if link.supplier_id in seen:
+            raise ValidationFailed("suppliers", "A supplier is listed twice.")
+        seen.add(link.supplier_id)
+        await owned(db, Supplier, link.supplier_id, actor, "Supplier")
+        if link.purchase_unit_id and link.purchase_unit_id not in units:
+            raise ValidationFailed("suppliers", "The purchase unit must be the base unit or one of the product's conversions.")
+    await db.execute(delete(ProductSupplier).where(ProductSupplier.product_id == product.id))
+    await db.flush()
+    db.add_all(ProductSupplier(product_id=product.id, supplier_id=link.supplier_id, supplier_sku=link.supplier_sku, purchase_unit_id=link.purchase_unit_id or product.base_unit_id,
+                               cost=link.cost, lead_time_days=link.lead_time_days, preferred=link.preferred) for link in links)
     await db.flush()
 
 

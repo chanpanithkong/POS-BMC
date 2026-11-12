@@ -54,9 +54,9 @@ async def current_sale(actor: Seller, db: DbSession) -> dict | None:
     return await service.current_sale(db, actor)
 
 
-@router.get("/held", response_model=ListResponse[s.SaleOut], summary="Held sales at this terminal's branch", responses=ERR)
-async def held_sales(actor: Seller, db: DbSession) -> dict:
-    return page(await service.held_sales(db, actor))
+@router.get("/held", response_model=ListResponse[s.SaleOut], summary="Held sales: this terminal's branch, or the caller's branches in the back office", responses=ERR)
+async def held_sales(actor: Viewer, db: DbSession, branch_id: uuid.UUID | None = None) -> dict:
+    return page(await service.held_sales(db, actor, branch_id))
 
 
 @router.get("/{sale_id}", response_model=s.SaleOut, summary="Sale detail", responses=ERR)

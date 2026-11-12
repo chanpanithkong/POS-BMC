@@ -30,11 +30,13 @@ from app.models import (
     InventoryBatch,
     InventoryMovement,
     Product,
+    ProductSupplier,
     ProductWarehouseSetting,
     StockCount,
     StockCountLine,
     StockTransfer,
     StockTransferLine,
+    Supplier,
     Unit,
     UnitConversion,
     User,
@@ -459,6 +461,9 @@ async def overview(db: AsyncSession, actor: Principal, *, branch_id: uuid.UUID |
         .group_by(StockTransferLine.product_id)
     )
     in_transit = {pid: Decimal(qty or 0) for pid, qty in await db.execute(transit_query)}
+    from app.services.purchasing import on_order as open_po_qty
+
+    ordered = await open_po_qty(db, ids, warehouses)
     categories = {c.id: c.name_en for c in await db.scalars(select(Category).where(Category.id.in_({p.category_id for p in products})))}
     units = {u.id: u.code for u in await db.scalars(select(Unit).where(Unit.id.in_({p.base_unit_id for p in products})))}
     rows = []
@@ -490,7 +495,7 @@ async def overview(db: AsyncSession, actor: Principal, *, branch_id: uuid.UUID |
             entry["reserved"] += b.reserved
         rows.append({
             "product_id": p.id, "sku": p.sku, "product_name": p.name_en, "category_id": p.category_id, "category_name": categories.get(p.category_id, ""), "unit_code": units.get(p.base_unit_id, ""),
-            "on_hand": on_hand, "reserved": reserved, "available": available, "on_order": Decimal(0), "in_transit": in_transit.get(p.id, Decimal(0)),
+            "on_hand": on_hand, "reserved": reserved, "available": available, "on_order": ordered.get(p.id, Decimal(0)), "in_transit": in_transit.get(p.id, Decimal(0)),
             "reorder_level": reorder, "max_level": max_level, "avg_cost": _cost(actor, p.avg_cost), "value": _cost(actor, (on_hand * p.avg_cost).quantize(MONEY_PLACES, ROUND_HALF_UP)),
             "status": status, "by_location": [v for v in locations.values() if v["on_hand"] or v["reserved"]],
         })
@@ -564,6 +569,8 @@ async def batches(db: AsyncSession, actor: Principal, *, within_days: int | None
 
 async def reorder_suggestions(db: AsyncSession, actor: Principal, *, warehouse_id: uuid.UUID | None, branch_id: uuid.UUID | None) -> list[dict]:
     """Products at or below their reorder level, per warehouse, with a suggested purchase quantity (FR-ALR-006)."""
+    from app.services.purchasing import on_order as open_po_qty
+
     warehouses_q = select(Warehouse).where(Warehouse.id.in_(visible_warehouses(actor)))
     if warehouse_id:
         warehouses_q = warehouses_q.where(Warehouse.id == warehouse_id)
@@ -588,17 +595,23 @@ async def reorder_suggestions(db: AsyncSession, actor: Principal, *, warehouse_i
             ) or 0)
             if available > reorder:
                 continue
-            on_order = Decimal(0)  # purchase orders arrive in Phase 6
+            on_order = (await open_po_qty(db, [p.id], select(Warehouse.id).where(Warehouse.id == wh.id))).get(p.id, Decimal(0))
             suggested_base = (max_level - available - on_order) if max_level > 0 else reorder_qty
             if suggested_base <= 0:
                 continue
+            link = await db.scalar(select(ProductSupplier).where(ProductSupplier.product_id == p.id).order_by(ProductSupplier.preferred.desc()).limit(1))
+            supplier = await db.get(Supplier, link.supplier_id) if link else None
             conversion = await db.scalar(select(UnitConversion).where(UnitConversion.product_id == p.id, UnitConversion.is_purchase_default.is_(True)))
             factor = conversion.factor if conversion else Decimal(1)
             unit_id = conversion.unit_id if conversion else p.base_unit_id
+            if link is not None:  # the supplier's purchase unit wins
+                unit_id = link.purchase_unit_id
+                factor = await db.scalar(select(UnitConversion.factor).where(UnitConversion.product_id == p.id, UnitConversion.unit_id == unit_id)) or Decimal(1)
             rows.append({
                 "product_id": p.id, "sku": p.sku, "product_name": p.name_en, "warehouse_id": wh.id, "warehouse_name": wh.name, "available": available, "on_order": on_order,
                 "max_level": max_level, "suggested_base": suggested_base, "purchase_unit_id": unit_id, "purchase_unit_code": units.get(unit_id, ""), "purchase_factor": factor,
-                "suggested_qty": Decimal(math.ceil(suggested_base / factor)), "supplier_id": None, "supplier_name": "", "cost": _cost(actor, p.last_purchase_cost or p.avg_cost), "lead_time_days": 0,
+                "suggested_qty": Decimal(math.ceil(suggested_base / factor)), "supplier_id": supplier.id if supplier else None, "supplier_name": supplier.name_en if supplier else "",
+                "cost": _cost(actor, link.cost if link and link.cost else (p.last_purchase_cost or p.avg_cost)), "lead_time_days": link.lead_time_days if link else 0,
             })
     return rows
 

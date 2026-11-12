@@ -22,6 +22,7 @@ from app.core.exceptions import AppError, Conflict, InvalidStateTransition, NotF
 from app.models import (
     Branch,
     Category,
+    Customer,
     OutboxEvent,
     PosTerminal,
     Product,
@@ -34,7 +35,7 @@ from app.models import (
     WarehouseLocation,
 )
 from app.schemas import sales as s
-from app.services import approvals, cash_sessions, pricing, stock
+from app.services import approvals, cash_sessions, customers, pricing, stock
 from app.services.common import next_number, record_audit
 from app.services.principal import Principal
 from app.services.sales import COMPLETED, _approver_name, _lines, _new_line, _payments, _sellable, _settings, cents, recalc_paid, reprice, round_khr
@@ -136,8 +137,10 @@ async def create_return(db: AsyncSession, actor: Principal, sale_id: uuid.UUID, 
     terminal = await cash_sessions.current_terminal(db, actor)
     if terminal.branch_id != sale.branch_id and not actor.can("sales.sale.view_all"):
         raise AppError("Returns are processed at the branch that made the sale.", code="WRONG_BRANCH", status_code=403)
-    if data.refund_method == "STORE_CREDIT" or data.settlement_method == "STORE_CREDIT":
-        raise ValidationFailed("refund_method", "Store credit arrives with customers (Phase 6).")
+    if data.refund_method == "STORE_CREDIT" and sale.customer_id is None:
+        raise ValidationFailed("refund_method", "Store credit needs a customer on the original sale.")
+    if data.settlement_method == "STORE_CREDIT":
+        raise ValidationFailed("settlement_method", "Pay the exchange difference in cash or by card, QR or transfer.")
     q = await _quote(db, actor, sale, data)
     approved_by = None
     if q["approval_reasons"]:
@@ -215,8 +218,15 @@ async def _refund(db: AsyncSession, actor: Principal, sale: Sale, ret: SalesRetu
             _mark_refunded(source, amount)
         ret.refund_status = "COMPLETED"
         return
+    if method == "STORE_CREDIT":
+        customer = await db.scalar(select(Customer).where(Customer.id == sale.customer_id).with_for_update())
+        await customers.change_credit(db, actor, customer, amount, f"Refund for {ret.return_no}", sale_id=sale.id, return_id=ret.id)
+        db.add(Refund(company_id=actor.company_id, sale_id=sale.id, return_id=ret.id, kind="RETURN", method="STORE_CREDIT", currency="USD", amount=amount, amount_applied=amount,
+                      status="COMPLETED", user_id=actor.user_id, business_date=today, completed_at=_now()))
+        ret.refund_status = "COMPLETED"
+        return
     if method not in ELECTRONIC:
-        raise ValidationFailed("refund_method", "Choose cash or the original payment method.")
+        raise ValidationFailed("refund_method", "Choose cash, store credit or the original payment method.")
     remaining = amount
     for p in [p for p in payments if p.method == method]:
         room = p.amount_applied - p.refunded_amount

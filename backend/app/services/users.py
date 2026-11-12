@@ -176,7 +176,7 @@ def sod_conflicts(permissions: set[str]) -> list[str]:
 
 async def role_view(db: AsyncSession, role: Role) -> dict:
     perms = sorted(await db.scalars(select(RolePermission.permission_code).where(RolePermission.role_id == role.id)))
-    return {"id": role.id, "code": role.code, "name": role.name, "description": role.description, "is_system": role.is_system, "permissions": perms, "limits": role.limits, "sod_conflicts": sod_conflicts(set(perms))}
+    return {"id": role.id, "code": role.code, "name": role.name, "description": role.description, "is_system": role.is_system, "system": role.is_system, "permissions": perms, "limits": role.limits, "sod_conflicts": sod_conflicts(set(perms))}
 
 
 async def list_roles(db: AsyncSession, actor: Principal) -> list[dict]:

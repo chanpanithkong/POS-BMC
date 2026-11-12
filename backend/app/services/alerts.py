@@ -28,6 +28,7 @@ from app.models import (
     WarehouseLocation,
 )
 from app.services.common import record_audit
+from app.services.notifications import notify
 from app.services.principal import Principal
 from app.services.stock import visible_warehouses
 
@@ -44,6 +45,14 @@ async def _settings(db: AsyncSession, company_id: uuid.UUID) -> dict:
 
 
 async def _raise(db: AsyncSession, company_id: uuid.UUID, kind: str, product_id: uuid.UUID, warehouse: Warehouse | None, message: str, subject: str = "") -> bool:
+    inserted = await _insert_alert(db, company_id, kind, product_id, warehouse, message, subject)
+    if inserted and kind in ("OUT_OF_STOCK", "NEGATIVE_STOCK", "EXPIRED", "LOW_STOCK", "UNUSUAL_ADJUSTMENT"):
+        notify(db, company_id, "STOCK_ALERT", kind.replace("_", " ").title(), message, link="/inventory/alerts", permission="inventory.alert.view",
+               branch_id=warehouse.branch_id if warehouse else None)
+    return inserted
+
+
+async def _insert_alert(db: AsyncSession, company_id: uuid.UUID, kind: str, product_id: uuid.UUID, warehouse: Warehouse | None, message: str, subject: str) -> bool:
     inserted = await db.scalar(
         insert(InventoryAlert).values(id=uuid.uuid4(), company_id=company_id, type=kind, product_id=product_id, warehouse_id=warehouse.id if warehouse else None,
                                       branch_id=warehouse.branch_id if warehouse else None, subject=subject, message=message, status="OPEN")

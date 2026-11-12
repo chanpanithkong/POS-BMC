@@ -169,6 +169,8 @@ class SaleLine(UUIDPk, Base):
     override_reason: Mapped[str | None] = mapped_column(String(200))
     override_approved_by: Mapped[str | None] = mapped_column(String(200))
     line_discount: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    promotion_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("promotions.id"))
+    promotion_name: Mapped[str | None] = mapped_column(String(200))
     gross_amount: Mapped[Money] = mapped_column(default=Decimal("0"))
     discount_amount: Mapped[Money] = mapped_column(default=Decimal("0"))
     order_discount_share: Mapped[Money] = mapped_column(default=Decimal("0"))

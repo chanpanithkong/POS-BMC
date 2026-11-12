@@ -1,8 +1,9 @@
+import json
 import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import EmailStr, Field
+from pydantic import EmailStr, Field, model_validator
 
 from app.schemas.common import Command, Out
 
@@ -75,6 +76,7 @@ class RoleOut(Out):
     name: str
     description: str
     is_system: bool
+    system: bool = Field(description="Same as is_system (frontend field name)")
     permissions: list[str]
     limits: dict[str, Decimal]
     sod_conflicts: list[str]
@@ -135,6 +137,8 @@ class EmployeeUpdate(Command):
 class AuditLogOut(Out):
     id: int
     occurred_at: datetime
+    at: datetime = Field(description="Same as occurred_at (frontend field name)")
+    entity: str = Field(description="Same as entity_type (frontend field name)")
     user_id: uuid.UUID | None
     user_name: str
     action: str
@@ -142,7 +146,16 @@ class AuditLogOut(Out):
     entity_type: str
     entity_id: str
     branch_id: uuid.UUID | None
-    before: dict | None
-    after: dict | None
+    before: str | None = Field(description="JSON text of the values before the change")
+    after: str | None = Field(description="JSON text of the values after the change")
     flagged: bool
     correlation_id: str | None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _from_log(cls, value):
+        if hasattr(value, "occurred_at"):
+            text = lambda v: None if v is None else json.dumps(v, ensure_ascii=False, sort_keys=True)  # noqa: E731
+            return {**{f: getattr(value, f) for f in ("id", "occurred_at", "user_id", "user_name", "action", "module", "entity_type", "entity_id", "branch_id", "flagged", "correlation_id")},
+                    "at": value.occurred_at, "entity": value.entity_type, "before": text(value.before), "after": text(value.after)}
+        return value

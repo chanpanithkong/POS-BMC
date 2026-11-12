@@ -14,11 +14,12 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import AppError, Conflict, Forbidden, InvalidStateTransition, NotAuthenticated, NotFound, ValidationFailed
+from app.core.exceptions import AppError, Conflict, Forbidden, InvalidStateTransition, NotFound, ValidationFailed
 from app.models import Branch, CashierSession, CashMovement, Company, PosTerminal, Refund, Sale, SalePayment, TerminalCashier, User
 from app.schemas import sales as s
 from app.services import approvals
 from app.services.common import next_number, record_audit
+from app.services.notifications import notify
 from app.services.principal import Principal
 from app.services.stock import business_date
 
@@ -33,10 +34,10 @@ def _now() -> datetime:
 async def current_terminal(db: AsyncSession, actor: Principal) -> PosTerminal:
     """The registered terminal sent in X-Terminal-Id, checked against the caller's branch and cashier assignment."""
     if actor.terminal_id is None:
-        raise NotAuthenticated("This device is not registered as a POS terminal. Send X-Terminal-Id.", code="TERMINAL_NOT_REGISTERED")
+        raise Conflict("This device is not registered as a POS terminal. Send X-Terminal-Id.", code="TERMINAL_NOT_REGISTERED")
     terminal = await db.get(PosTerminal, actor.terminal_id)
     if terminal is None or terminal.company_id != actor.company_id or terminal.status != "ACTIVE":
-        raise NotAuthenticated("This device is not registered as a POS terminal.", code="TERMINAL_NOT_REGISTERED")
+        raise Conflict("This device is not registered as a POS terminal.", code="TERMINAL_NOT_REGISTERED")
     if not actor.has_branch(terminal.branch_id):
         raise Forbidden("You are not assigned to this terminal's branch.")
     assigned = set(await db.scalars(select(TerminalCashier.user_id).where(TerminalCashier.terminal_id == terminal.id)))
@@ -200,8 +201,8 @@ async def add_movement(db: AsyncSession, actor: Principal, session_id: uuid.UUID
         raise InvalidStateTransition("Cash can only be moved in an open session.")
     if session.cashier_id != actor.user_id and not actor.can("cash.session.approve"):
         raise Forbidden("Only the session's cashier or a manager can record cash movements.")
-    if data.kind == "PAID_OUT" and data.expense_category_id:
-        raise ValidationFailed("expense_category_id", "Linking paid-outs to expenses arrives with the expense module (Phase 8).")
+    if data.expense_category_id and data.kind != "PAID_OUT":
+        raise ValidationFailed("expense_category_id", "Only paid-outs are recorded as expenses.")
     threshold = Decimal(str((await _settings(db, actor)).get("cash_movement_approval_threshold", "50")))
     approved_by = None
     usd_value = await _usd(db, actor, data.currency, data.amount)
@@ -218,6 +219,10 @@ async def add_movement(db: AsyncSession, actor: Principal, session_id: uuid.UUID
                             approved_by=approved_by, user_id=actor.user_id, by_name=actor.full_name)
     db.add(movement)
     await db.flush()
+    if data.kind == "PAID_OUT" and data.expense_category_id:
+        from app.services.expenses import record_paid_out
+
+        await record_paid_out(db, actor, session, movement, uuid.UUID(data.expense_category_id))
     await record_audit(db, actor, f"CASH_{data.kind}", "CSH", "cashier_session", session.id, after={"currency": data.currency, "amount": str(data.amount), "reason": data.reason, "approved_by": approved_by}, branch_id=session.branch_id)
     await db.commit()
     return movement_view(movement)
@@ -252,6 +257,8 @@ async def close(db: AsyncSession, actor: Principal, session_id: uuid.UUID, data:
         session.variance_reason = data.variance_reason
     if session.needs_approval:
         session.status = "CLOSING"
+        notify(db, actor.company_id, "APPROVAL", "Session variance needs review", f"{session.session_no}: {session.variance_usd} USD / {session.variance_khr} KHR",
+               link="/cashier-sessions", permission="cash.session.approve", branch_id=session.branch_id)
     else:
         session.status, session.closed_at = "CLOSED", _now()
     await record_audit(db, actor, "SESSION_COUNTED", "CSH", "cashier_session", session.id,

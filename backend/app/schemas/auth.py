@@ -91,6 +91,7 @@ class SessionOut(Out):
     last_seen_at: datetime
     expires_at: datetime
     current: bool
+    revoked: bool = False
 
 
 class ApprovalRequest(Command):

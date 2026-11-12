@@ -44,7 +44,7 @@ from app.models import (
     WarehouseLocation,
 )
 from app.schemas import sales as s
-from app.services import approvals, cash_sessions, customers, pricing, stock
+from app.services import approvals, cash_sessions, customers, pricing, promotions, stock
 from app.services.common import next_number, record_audit
 from app.services.principal import Principal
 
@@ -117,7 +117,7 @@ async def sale_view(db: AsyncSession, actor: Principal, sale: Sale) -> dict:
             **{f: getattr(line, f) for f in ("id", "product_id", "sku", "name_en", "name_km", "unit_id", "unit_code", "factor", "quantity", "quantity_base", "allow_fraction", "precision",
                                               "unit_price", "price_source", "price_explanation", "list_price", "override_approved_by", "override_reason", "line_discount", "gross_amount",
                                               "discount_amount", "order_discount_share", "tax_code_id", "tax_code", "tax_rate", "tax_amount", "line_total", "returned_quantity", "is_service", "price_changed")},
-            "promotion_name": None, "unit_cost": line.unit_cost if actor.sees_cost else None, "cost_total": line.cost_total if actor.sees_cost else None,
+            "promotion_name": line.promotion_name, "unit_cost": line.unit_cost if actor.sees_cost else None, "cost_total": line.cost_total if actor.sees_cost else None,
             "available": Decimal(0) if line.is_service else await _available(db, line.location_id or location, line.product_id),
         })
     return {
@@ -174,9 +174,17 @@ async def list_sales(db: AsyncSession, actor: Principal, *, q: str | None, statu
     return [await sale_view(db, actor, x) for x in rows], total
 
 
-async def held_sales(db: AsyncSession, actor: Principal) -> list[dict]:
-    terminal = await cash_sessions.current_terminal(db, actor)
-    rows = await db.scalars(select(Sale).where(Sale.company_id == actor.company_id, Sale.branch_id == terminal.branch_id, Sale.status == "HELD").order_by(Sale.updated_at.desc()))
+async def held_sales(db: AsyncSession, actor: Principal, branch_id: uuid.UUID | None = None) -> list[dict]:
+    """At a terminal: held sales of that terminal's branch. In the back office: held sales of the branches the caller can see."""
+    query = select(Sale).where(Sale.company_id == actor.company_id, Sale.status == "HELD")
+    if actor.terminal_id is not None:
+        query = query.where(Sale.branch_id == (await cash_sessions.current_terminal(db, actor)).branch_id)
+    else:
+        if actor.branch_ids is not None:
+            query = query.where(Sale.branch_id.in_(actor.branch_ids))
+        if branch_id is not None:
+            query = query.where(Sale.branch_id == branch_id)
+    rows = await db.scalars(query.order_by(Sale.updated_at.desc()))
     return [await sale_view(db, actor, x) for x in rows]
 
 
@@ -242,6 +250,9 @@ async def reprice(db: AsyncSession, sale: Sale, lines: list[SaleLine], *, mark_c
     sale.tax_inclusive = bool(settings.get("tax_inclusive", False))
     customer = await db.get(Customer, sale.customer_id) if sale.customer_id else None
     group_id = customer.group_id if customer else None
+    promos = await promotions.active_promotions(db, sale.company_id)
+    branch = await db.get(Branch, sale.branch_id)
+    now = promotions._today(branch)
     for line in lines:
         product = await db.get(Product, line.product_id)
         assert product is not None
@@ -251,11 +262,25 @@ async def reprice(db: AsyncSession, sale: Sale, lines: list[SaleLine], *, mark_c
         base_source = (resolved.source or "RETAIL").replace("_BASE_UNIT", "")
         old_price = line.unit_price
         line.list_price = resolved.price
+        line.promotion_id, line.promotion_name = None, None
+        manual_discount = bool(line.line_discount and line.line_discount.get("source") == "MANUAL")
+        if line.line_discount and not manual_discount:
+            line.line_discount = None  # automatic discounts are recalculated below
         if line.override_price is not None:
             line.unit_price, line.price_source, line.price_explanation = line.override_price, "OVERRIDE", f"Override of {resolved.price.normalize()}: {line.override_reason}"
         else:
             line.unit_price, line.price_source = resolved.price, PRICE_SOURCE.get(base_source, "STANDARD")
             line.price_explanation = {"BRANCH": "Branch price", "CUSTOMER_GROUP": "Customer group price"}.get(base_source, "Retail price") + (" (from base unit)" if "BASE_UNIT" in (resolved.source or "") else "")
+            promo = promotions.best_for(promos, product, sale.branch_id, group_id, now, resolved.price)
+            if promo is not None and promo.type != "BOGO":
+                discounted = promotions.promo_price(resolved.price, promo, line.factor)
+                if discounted < line.unit_price:
+                    line.unit_price, line.price_source, line.price_explanation = discounted, "PROMOTION", f"Promotion: {promo.name}"
+                    line.promotion_id, line.promotion_name = promo.id, promo.name
+            elif promo is not None and not manual_discount and line.quantity >= 2 and line.quantity == line.quantity.to_integral_value():
+                free = (line.quantity // 2)
+                line.line_discount = {"type": "AMOUNT", "value": str(cents(free * line.unit_price)), "reason": promo.name, "source": "PROMOTION", "approved_by": None}
+                line.promotion_id, line.promotion_name = promo.id, promo.name
         if mark_changes and old_price and old_price != line.unit_price:
             line.price_changed = True
             notices.append(f"{line.name_en}: price changed from {old_price.normalize()} to {line.unit_price.normalize()}")
@@ -269,6 +294,8 @@ async def reprice(db: AsyncSession, sale: Sale, lines: list[SaleLine], *, mark_c
         else:
             line.discount_amount = Decimal(0)
 
+    if not sale.order_discount or sale.order_discount.get("source") != "MANUAL":
+        sale.order_discount = await promotions.order_discount(db, sale, promos, now) if lines else None
     base = sum((ln.gross_amount - ln.discount_amount for ln in lines), Decimal(0))
     order = sale.order_discount
     order_amount = Decimal(0)
@@ -427,9 +454,15 @@ async def apply_ops(db: AsyncSession, actor: Principal, sale_id: uuid.UUID, data
                     raise NotFound("Customer")
                 sale.customer_id, sale.customer_name = customer.id, customer.name
         elif op.type == "apply_coupon":
-            if op.code:
-                raise ValidationFailed("code", "Coupons arrive with promotions (Phase 8).")
-            sale.coupon_code = None
+            if not op.code:
+                sale.coupon_code = None
+            else:
+                if sale.order_discount and sale.order_discount.get("source") == "MANUAL":
+                    raise ValidationFailed("code", "Remove the manual order discount to use a coupon.")
+                await db.flush()
+                await reprice(db, sale, lines, mark_changes=False)
+                coupon = await promotions.validate_coupon(db, sale, op.code, sale.subtotal)
+                sale.coupon_code = coupon.code
         elif op.type == "hold":
             actor.require("pos.sale.hold")
             if not lines:
@@ -499,8 +532,8 @@ async def add_payment(db: AsyncSession, actor: Principal, sale_id: uuid.UUID, da
     method = await db.scalar(select(PaymentMethod).where(PaymentMethod.company_id == actor.company_id, PaymentMethod.code == data.method))
     if method is None or method.status != "ACTIVE":
         raise ValidationFailed("method", f"{data.method.replace('_', ' ').title()} payments are not enabled.")
-    if data.method == "STORE_CREDIT":
-        raise ValidationFailed("method", "Store credit arrives with customers (Phase 6).")
+    if data.method == "STORE_CREDIT" and (sale.customer_id is None or data.currency != "USD"):
+        raise ValidationFailed("method", "Store credit needs a customer on the sale and is paid in USD.")
     await reprice(db, sale, lines, mark_changes=False)
     await recalc_paid(db, sale)
     balance = sale.grand_total - sale.paid_total
@@ -540,6 +573,12 @@ async def add_payment(db: AsyncSession, actor: Principal, sale_id: uuid.UUID, da
                 rounding += four(exact - change)
         else:
             change = change_tender
+    elif data.method == "STORE_CREDIT":
+        if tendered > balance:
+            raise ValidationFailed("amount_tendered", f"Store credit cannot exceed the balance of {balance.normalize()} USD.")
+        applied = cents(tendered)
+        customer = await db.scalar(select(Customer).where(Customer.id == sale.customer_id).with_for_update())
+        await customers.change_credit(db, actor, customer, -applied, "Used on a sale", sale_id=sale.id)
     else:
         if data.change_currency and data.change_currency != data.currency:
             raise ValidationFailed("change_currency", "Change is given only for cash.")
@@ -673,6 +712,10 @@ async def finalize(db: AsyncSession, actor: Principal, sale_id: uuid.UUID) -> di
     if sale.paid_total < sale.grand_total:
         raise AppError(f"{(sale.grand_total - sale.paid_total).normalize()} USD is still due.", code="BALANCE_DUE", status_code=409)  # partial payments are off (D-11)
 
+    used = {ln.promotion_id for ln in lines if ln.promotion_id}
+    if sale.order_discount and sale.order_discount.get("promotion_id"):
+        used.add(uuid.UUID(sale.order_discount["promotion_id"]))
+    await promotions.count_usage(db, sale, used)
     await release_reservations(db, sale.id, status="CONSUMED")
     moves = []
     for line in lines:
@@ -713,13 +756,15 @@ async def cancel(db: AsyncSession, actor: Principal, sale_id: uuid.UUID, data: s
         approval = await approvals.consume(db, actor, token=data.approval_token, action="CANCEL_SALE", amount=sale.grand_total, message="Cancelling a sale with items needs supervisor approval.")
         approved_by = await _approver_name(db, approval)
     payments = await _payments(db, sale.id)
-    if any(p.status in COMPLETED and p.method != "CASH" for p in payments):
+    if any(p.status in COMPLETED and p.method not in ("CASH", "STORE_CREDIT") for p in payments):
         raise AppError("Refund the completed card, QR or transfer payments through the provider first.", code="PAYMENT_REFUND_REQUIRED", status_code=409)
     branch = await db.get(Branch, sale.branch_id)
     increment = Decimal(str((await _settings(db, actor.company_id)).get("khr_cash_increment", "100")))
     for payment in payments:
         if payment.status == "PENDING":
             payment.status, payment.failure_reason = "CANCELLED", "Sale cancelled"
+        elif payment.status in COMPLETED and payment.method == "STORE_CREDIT":
+            await _return_credit(db, actor, sale, payment, payment.amount_applied, "CANCEL", branch)
         elif payment.status in COMPLETED and payment.method == "CASH":
             # Cash taken before cancelling goes back to the customer from the same drawer, in the currency it was paid in.
             amount = payment.amount_applied if payment.currency == "USD" else round_khr(payment.amount_applied * payment.exchange_rate, increment)
@@ -744,6 +789,8 @@ async def void(db: AsyncSession, actor: Principal, sale_id: uuid.UUID, data: s.S
         raise AppError("Voids are allowed only while the sale's cashier session is open. Use a return instead.", code="SESSION_CLOSED", status_code=409)  # BR-SAL-003
     if await db.scalar(select(SalesReturn.id).where(SalesReturn.original_sale_id == sale.id).limit(1)):
         raise Conflict("This sale has returns; it cannot be voided.", code="HAS_RETURNS")
+    if sale.exchange_return_id:
+        raise Conflict("This sale is part of an exchange; correct it with a return.", code="EXCHANGE_SALE")
     approval = await approvals.consume(db, actor, token=data.approval_token, action="VOID_SALE", amount=sale.grand_total, message="Voiding a sale needs approval from another authorised user.")
     approved_by = await _approver_name(db, approval)
     lines = await _lines(db, sale.id)
@@ -763,6 +810,9 @@ async def void(db: AsyncSession, actor: Principal, sale_id: uuid.UUID, data: s.S
         if payment.status not in COMPLETED or payment.amount_applied <= payment.refunded_amount:
             continue
         remaining = payment.amount_applied - payment.refunded_amount
+        if payment.method == "STORE_CREDIT":
+            await _return_credit(db, actor, sale, payment, remaining, "VOID", branch)
+            continue
         amount = remaining if payment.currency == "USD" else round_khr(remaining * payment.exchange_rate, increment)
         cash = payment.method == "CASH"
         db.add(Refund(company_id=actor.company_id, sale_id=sale.id, sale_payment_id=payment.id, kind="VOID", method=payment.method, currency=payment.currency, amount=amount,
@@ -777,6 +827,16 @@ async def void(db: AsyncSession, actor: Principal, sale_id: uuid.UUID, data: s.S
                        flagged=True, branch_id=sale.branch_id)
     await db.commit()
     return await sale_view(db, actor, sale)
+
+
+async def _return_credit(db: AsyncSession, actor: Principal, sale: Sale, payment: SalePayment, amount: Decimal, kind: str, branch: Branch | None) -> None:
+    """Store credit used on a sale goes back to the customer's balance at once."""
+    customer = await db.scalar(select(Customer).where(Customer.id == sale.customer_id).with_for_update())
+    await customers.change_credit(db, actor, customer, amount, f"Returned from {kind.lower()} of {sale.receipt_no or 'an unfinished sale'}", sale_id=sale.id)
+    db.add(Refund(company_id=actor.company_id, sale_id=sale.id, sale_payment_id=payment.id, kind=kind, method="STORE_CREDIT", currency="USD", amount=amount, amount_applied=amount,
+                  status="COMPLETED", user_id=actor.user_id, business_date=stock.business_date(branch), completed_at=_now()))
+    payment.refunded_amount = min(payment.refunded_amount + amount, payment.amount_applied)
+    payment.status = "REFUNDED" if payment.refunded_amount >= payment.amount_applied else "PARTIALLY_REFUNDED"
 
 
 # Receipts and invoices

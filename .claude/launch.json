@@ -1,0 +1,7 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "pims-api-demo", "runtimeExecutable": "cmd", "runtimeArgs": ["/c", "cd backend && set DB_NAME=pims_demo&& .venv\\Scripts\\python.exe -m app.serve --port 8000"], "port": 8000 },
+    { "name": "pos-live", "runtimeExecutable": "cmd", "runtimeArgs": ["/c", "cd frontend && npm run dev"], "port": 3000 }
+  ]
+}

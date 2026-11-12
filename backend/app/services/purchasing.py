@@ -41,7 +41,7 @@ from app.models import (
     WarehouseLocation,
 )
 from app.schemas import purchasing as s
-from app.services import pricing, stock
+from app.services import notifications, pricing, stock
 from app.services.approvals import LimitExceeded, SodViolation
 from app.services.common import apply_changes, ensure_unique, next_number, owned, plain, record_audit
 from app.services.principal import Principal
@@ -281,6 +281,8 @@ async def po_action(db: AsyncSession, actor: Principal, po_id: uuid.UUID, verb: 
         _status(po, "DRAFT", action="submit")
         po.status = "PENDING_APPROVAL"
         _event(po, "Submitted for approval", actor)
+        notifications.notify(db, actor.company_id, "PO_APPROVAL", "Purchase order awaiting approval", f"{po.po_no}: {po.total:.2f} USD", link="/purchases",
+                             permission="purchasing.order.approve", branch_id=po.branch_id)
     elif verb == "approve":
         actor.require("purchasing.order.approve")
         _status(po, "PENDING_APPROVAL", action="approve")
@@ -527,6 +529,8 @@ async def grn_action(db: AsyncSession, actor: Principal, grn_id: uuid.UUID, verb
         _status(g, "DRAFT", action="post")
         if await _discrepancies(db, actor, g):
             g.status = "PENDING_APPROVAL"
+            notifications.notify(db, actor.company_id, "RECEIPT_DISCREPANCY", "Goods receipt needs approval", f"{g.receipt_no}: {(g.discrepancies or ['discrepancy'])[0]}",
+                                 link="/purchases/receiving", permission="inventory.adjustment.approve", branch_id=g.branch_id)
         else:
             await _post_grn(db, actor, g)
     elif verb == "approve":
@@ -578,7 +582,7 @@ async def _received_value(db: AsyncSession, po_id: uuid.UUID) -> Decimal:
         .join(GoodsReceipt, GoodsReceipt.id == GoodsReceiptLine.receipt_id).outerjoin(PurchaseOrderLine, PurchaseOrderLine.id == GoodsReceiptLine.po_line_id)
         .where(GoodsReceipt.po_id == po_id, GoodsReceipt.status == "POSTED")
     )
-    return sum((cents(q * c * (1 + (rate or 0) / 100)) for q, c, rate in rows), Decimal(0))
+    return sum((cents(Decimal(str(q)) * Decimal(str(c)) * (1 + Decimal(str(rate or 0)) / 100)) for q, c, rate in rows), Decimal(0))
 
 
 async def create_invoice(db: AsyncSession, actor: Principal, data: s.InvoiceCreate) -> dict:

@@ -19,6 +19,8 @@ type Transport = (request: ApiRequest, token: string | null) => Promise<unknown>
 let accessToken: string | null = null;
 let terminalId: string | null = null;
 let onUnauthorized: (() => void) | null = null;
+let refresher: (() => Promise<string | null>) | null = null;
+let refreshing: Promise<string | null> | null = null;
 
 export const authBridge = {
   setToken(token: string | null) {
@@ -33,15 +35,25 @@ export const authBridge = {
   onUnauthorized(handler: () => void) {
     onUnauthorized = handler;
   },
+  /** Live API: renews the 15-minute access token from the refresh cookie when a request gets 401. */
+  onRefresh(handler: () => Promise<string | null>) {
+    refresher = handler;
+  },
 };
 
 export function newIdempotencyKey(): string {
   return crypto.randomUUID();
 }
 
+/**
+ * Only plain filter values become query parameters. Objects are skipped, which covers a React
+ * Query context passed by `queryFn: api.list`, and so is the "all" branch sentinel used by the
+ * branch switcher: no branch_id means every branch the user may see.
+ */
 function buildUrl(path: string, query?: ListParams) {
   const url = new URL(`${apiConfig.baseUrl}${path}`);
   Object.entries(query ?? {}).forEach(([key, value]) => {
+    if (typeof value === "object" || (key === "branchId" && value === "all")) return;
     if (value !== undefined && value !== null && value !== "") {
       url.searchParams.set(key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`), String(value));
     }
@@ -88,9 +100,25 @@ const mockTransport: Transport = async (request, token) => {
 const transport: Transport = apiConfig.mode === "live" ? httpTransport : mockTransport;
 
 /** Single entry point for every backend call in the application. */
+async function renewToken(): Promise<string | null> {
+  if (!refresher) return null;
+  // One refresh at a time: parallel 401s wait for the same renewal (the refresh token rotates).
+  refreshing ??= refresher().catch(() => null).finally(() => {
+    refreshing = null;
+  });
+  return refreshing;
+}
+
 export async function apiRequest<T>(request: ApiRequest): Promise<T> {
+  const send = () => transport({ ...request, terminalId: request.terminalId ?? terminalId }, accessToken);
   try {
-    return (await transport({ ...request, terminalId: request.terminalId ?? terminalId }, accessToken)) as T;
+    try {
+      return (await send()) as T;
+    } catch (error) {
+      const canRenew = apiConfig.mode === "live" && error instanceof ApiError && error.isAuthError && !request.path.startsWith("/auth/") && accessToken !== null;
+      if (!canRenew || !(await renewToken())) throw error;
+      return (await send()) as T; // retried once with the new token; the Idempotency-Key is unchanged
+    }
   } catch (error) {
     if (error instanceof ApiError && error.isAuthError && !request.path.startsWith("/auth/")) {
       onUnauthorized?.();
