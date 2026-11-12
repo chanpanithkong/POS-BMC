@@ -39,7 +39,7 @@ from app.models import (
 from app.schemas import inventory as s
 from app.services import alerts, notifications, stock
 from app.services.approvals import SodViolation
-from app.services.common import next_number, record_audit
+from app.services.common import next_number, num, record_audit
 from app.services.principal import Principal
 
 MONEY = Decimal("0.0001")
@@ -401,7 +401,7 @@ async def transfer_action(db: AsyncSession, actor: Principal, transfer_id: uuid.
                 if remaining == 0:
                     break
             if remaining > 0:
-                raise stock.InsufficientStock(f"Not enough {product.sku} in {source.name} to dispatch {qty.normalize()}.",
+                raise stock.InsufficientStock(f"Not enough {product.sku} in {source.name} to dispatch {num(qty)}.",
                                               details=[{"product_id": str(product.id), "sku": product.sku, "requested": str(qty), "short": str(remaining)}])
             line.quantity_dispatched = qty
             line.unit_cost = product.avg_cost
@@ -427,7 +427,7 @@ async def transfer_action(db: AsyncSession, actor: Principal, transfer_id: uuid.
                 raise ValidationFailed("lines", "Unknown transfer line.")
             outstanding = line.quantity_dispatched - line.quantity_received - line.quantity_short - line.quantity_damaged
             if r.received + r.damaged + r.short > outstanding:
-                raise ValidationFailed("lines", f"Received, damaged and short together exceed the {outstanding.normalize()} outstanding.")
+                raise ValidationFailed("lines", f"Received, damaged and short together exceed the {num(outstanding)} outstanding.")
             product = await db.get(Product, line.product_id)
             assert product is not None
             taken: dict[str, Decimal] = {}

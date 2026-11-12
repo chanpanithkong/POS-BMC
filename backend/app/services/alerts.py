@@ -27,7 +27,7 @@ from app.models import (
     Warehouse,
     WarehouseLocation,
 )
-from app.services.common import record_audit
+from app.services.common import num, record_audit
 from app.services.notifications import notify
 from app.services.principal import Principal
 from app.services.stock import visible_warehouses
@@ -95,8 +95,8 @@ async def evaluate(db: AsyncSession, actor: Principal) -> dict:
         checks = [
             ("NEGATIVE_STOCK", lowest < 0, f"{product.sku} is negative in {warehouse.name}."),
             ("OUT_OF_STOCK", on_hand <= 0, f"{product.sku} is out of stock in {warehouse.name}."),
-            ("LOW_STOCK", 0 < on_hand <= reorder and reorder > 0, f"{product.sku} is at {on_hand.normalize()} in {warehouse.name}, at or below the reorder level {reorder.normalize()}."),
-            ("OVERSTOCK", max_level > 0 and on_hand > max_level, f"{product.sku} is at {on_hand.normalize()} in {warehouse.name}, above the maximum {max_level.normalize()}."),
+            ("LOW_STOCK", 0 < on_hand <= reorder and reorder > 0, f"{product.sku} is at {num(on_hand)} in {warehouse.name}, at or below the reorder level {num(reorder)}."),
+            ("OVERSTOCK", max_level > 0 and on_hand > max_level, f"{product.sku} is at {num(on_hand)} in {warehouse.name}, above the maximum {num(max_level)}."),
         ]
         for kind, condition, message in checks:
             if condition:
@@ -122,7 +122,7 @@ async def evaluate(db: AsyncSession, actor: Principal) -> dict:
         if product is None or warehouse is None:
             continue
         kind = "EXPIRED" if expiry < today else "EXPIRING"
-        message = f"Batch {batch_no} of {product.sku} ({qty.normalize()}) in {warehouse.name} {'expired' if kind == 'EXPIRED' else 'expires'} on {expiry:%d/%m/%Y}."
+        message = f"Batch {batch_no} of {product.sku} ({num(qty)}) in {warehouse.name} {'expired' if kind == 'EXPIRED' else 'expires'} on {expiry:%d/%m/%Y}."
         active.add((kind, product_id, warehouse_id, batch_no))
         raised += await _raise(db, actor.company_id, kind, product_id, warehouse, message, subject=batch_no)
 

@@ -43,7 +43,7 @@ from app.models import (
     Warehouse,
     WarehouseLocation,
 )
-from app.services.common import record_audit
+from app.services.common import num, record_audit
 from app.services.principal import Principal
 
 # Inbound movements that carry their own cost and so update the weighted average.
@@ -232,7 +232,7 @@ async def post(db: AsyncSession, actor: Principal, moves: list[Move]) -> list[In
                 if not allowed:
                     available = bal.on_hand + m.quantity - bal.reserved
                     raise InsufficientStock(
-                        f"Not enough {product.sku} at {m.from_location.code}: {available.normalize()} available, {m.quantity.normalize()} needed.",
+                        f"Not enough {product.sku} at {m.from_location.code}: {num(available)} available, {num(m.quantity)} needed.",
                         details=[{"product_id": str(product.id), "sku": product.sku, "location_id": str(m.from_location.id), "available": str(available), "requested": str(m.quantity)}],
                     )
                 bal.allow_negative = True

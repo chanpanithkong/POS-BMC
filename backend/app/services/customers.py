@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import AppError, Conflict, ValidationFailed
 from app.models import Company, Customer, CustomerGroup, PriceList, Sale, StoreCreditEntry
 from app.schemas import purchasing as s
-from app.services.common import apply_changes, ensure_unique, next_number, owned, plain, record_audit
+from app.services.common import apply_changes, ensure_unique, next_number, num, owned, plain, record_audit
 from app.services.principal import Principal
 
 PERSONAL = ("phone", "email", "address", "notes")
@@ -195,7 +195,7 @@ async def change_credit(db: AsyncSession, actor: Principal, customer: Customer, 
         raise ValidationFailed("method", "Store credit is turned off in settings.")
     new_balance = customer.store_credit + amount
     if new_balance < 0:
-        raise ValidationFailed("amount_tendered", f"{customer.name} has only {customer.store_credit.normalize()} store credit.")
+        raise ValidationFailed("amount_tendered", f"{customer.name} has only {num(customer.store_credit)} store credit.")
     customer.store_credit = new_balance
     db.add(StoreCreditEntry(company_id=actor.company_id, customer_id=customer.id, amount=amount, balance_after=new_balance, reason=reason, sale_id=sale_id, return_id=return_id, user_id=actor.user_id))
     await record_audit(db, actor, "STORE_CREDIT_CHANGED", "CUS", "customer", customer.id, after={"amount": str(amount), "balance": str(new_balance), "reason": reason})

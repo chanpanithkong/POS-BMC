@@ -36,7 +36,7 @@ from app.models import (
 )
 from app.schemas import sales as s
 from app.services import approvals, cash_sessions, customers, pricing, stock
-from app.services.common import next_number, record_audit
+from app.services.common import next_number, num, record_audit
 from app.services.principal import Principal
 from app.services.sales import COMPLETED, _approver_name, _lines, _new_line, _payments, _sellable, _settings, apply_line_costs, cents, recalc_paid, reprice, round_khr, sale_line_moves
 
@@ -64,7 +64,7 @@ async def _quote(db: AsyncSession, actor: Principal, sale: Sale, data: s.ReturnI
             raise ValidationFailed("lines", f"{line.sku} is listed twice.")
         seen.add(line.id)
         if item.quantity > line.quantity - line.returned_quantity:
-            raise ValidationFailed("lines", f"Only {(line.quantity - line.returned_quantity).normalize()} {line.unit_code} of {line.sku} can still be returned.")  # BR-RET-001
+            raise ValidationFailed("lines", f"Only {num(line.quantity - line.returned_quantity)} {line.unit_code} of {line.sku} can still be returned.")  # BR-RET-001
         if item.quantity != item.quantity.quantize(Decimal(1).scaleb(-line.precision if line.allow_fraction and line.factor == 1 else 0)):
             raise ValidationFailed("lines", f"{line.sku} is returned in whole units.")
         product = await db.get(Product, line.product_id)
@@ -85,10 +85,10 @@ async def _quote(db: AsyncSession, actor: Principal, sale: Sale, data: s.ReturnI
     refund_total = sum((x["refund_amount"] for x in out), Decimal(0))
     tax_total = sum((x["tax_amount"] for x in out), Decimal(0))
     if refund_total > actor.limits.get("refund_amount", Decimal(0)):
-        reasons.append(f"refund above your limit of {actor.limits.get('refund_amount', Decimal(0)).normalize()}")
+        reasons.append(f"refund above your limit of {num(actor.limits.get('refund_amount', Decimal(0)))}")
     cash_threshold = Decimal(str(settings.get("refund_cash_approval_threshold", "20")))
     if data.refund_method == "CASH" and refund_total > cash_threshold:
-        reasons.append(f"cash refund above {cash_threshold.normalize()}")
+        reasons.append(f"cash refund above {num(cash_threshold)}")
 
     replacement_total = Decimal(0)
     if data.replacement_lines:
@@ -248,7 +248,7 @@ async def _refund(db: AsyncSession, actor: Principal, sale: Sale, ret: SalesRetu
         if remaining == 0:
             break
     if remaining > 0:
-        raise ValidationFailed("refund_method", f"Only {(amount - remaining).normalize()} was paid by {method.lower().replace('_', ' ')}; refund the rest in cash.")
+        raise ValidationFailed("refund_method", f"Only {num(amount - remaining)} was paid by {method.lower().replace('_', ' ')}; refund the rest in cash.")
     ret.refund_status = "COMPLETED" if reference else "PENDING"
 
 

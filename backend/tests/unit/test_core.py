@@ -102,3 +102,11 @@ def test_database_password_is_url_encoded_and_secret(monkeypatch: pytest.MonkeyP
     settings = Settings(_env_file=None)  # type: ignore[call-arg]
     assert "p%40ss%3Aw%2Frd" in settings.url_for("pims_test_db")
     assert "p@ss" not in repr(settings)
+
+
+def test_num_formats_amounts_without_scientific_notation():
+    from decimal import Decimal
+
+    from app.services.common import num
+
+    assert [num(Decimal(v)) for v in ("50", "2.5000", "0.0000", "-3.10", "1000000.0000")] == ["50", "2.5", "0", "-3.1", "1000000"]

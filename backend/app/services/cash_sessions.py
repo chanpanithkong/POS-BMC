@@ -18,7 +18,7 @@ from app.core.exceptions import AppError, Conflict, Forbidden, InvalidStateTrans
 from app.models import Branch, CashierSession, CashMovement, Company, PosTerminal, Refund, Sale, SalePayment, TerminalCashier, User
 from app.schemas import sales as s
 from app.services import approvals
-from app.services.common import next_number, record_audit
+from app.services.common import next_number, num, record_audit
 from app.services.notifications import notify
 from app.services.principal import Principal
 from app.services.stock import business_date
@@ -214,7 +214,7 @@ async def add_movement(db: AsyncSession, actor: Principal, session_id: uuid.UUID
     if data.kind in OUTFLOWS:
         expected = expected_from(session, await cash_flows(db, session.id))
         if data.amount > expected[data.currency]:
-            raise ValidationFailed("amount", f"Only {expected[data.currency].normalize()} {data.currency} is expected in the drawer.")
+            raise ValidationFailed("amount", f"Only {num(expected[data.currency])} {data.currency} is expected in the drawer.")
     movement = CashMovement(session_id=session.id, kind=data.kind, currency=data.currency, amount=data.amount, reason=data.reason, witness=data.witness,
                             approved_by=approved_by, user_id=actor.user_id, by_name=actor.full_name)
     db.add(movement)

@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import AppError, Conflict, ValidationFailed
 from app.models import Branch, Company, CustomerGroup, PriceChange, PriceList, Product, ProductPrice, UnitConversion, User
 from app.schemas.catalog import BulkPriceInput, PriceCreate
-from app.services.common import owned, record_audit
+from app.services.common import num, owned, record_audit
 from app.services.principal import Principal
 
 CLOCK_SKEW = timedelta(minutes=1)
@@ -120,7 +120,7 @@ async def _check_min_price(db: AsyncSession, product: Product, unit_id: uuid.UUI
     factor = await unit_factor(db, product, unit_id) or Decimal("1")
     floor = product.min_selling_price * factor
     if price < floor:
-        raise ValidationFailed("price", f"Price is below the minimum selling price ({floor.normalize()}).")
+        raise ValidationFailed("price", f"Price is below the minimum selling price ({num(floor)}).")
 
 
 async def set_price(
