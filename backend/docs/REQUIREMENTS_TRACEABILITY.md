@@ -2,7 +2,7 @@
 
 Maps SRS PIMS-SRS-001 requirement IDs to backend code and tests. Status is Planned, Partial or Done; Done means implemented and covered by a passing test listed in the Tests column.
 
-47 of 293 functional requirements done, 11 partial (after Phases 1 to 3; 99 tests passing).
+150 of 293 functional requirements done, 28 partial (after Phases 1 to 5; 146 tests passing).
 
 ## Cross-cutting requirements
 
@@ -97,129 +97,129 @@ Maps SRS PIMS-SRS-001 requirement IDs to backend code and tests. Status is Plann
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-POS-001 | Barcode scanning | Must | BR-PRD-003 | services/pos |  | Planned |
-| FR-POS-002 | Product search | Must | — | services/pos |  | Planned |
-| FR-POS-003 | Category browsing | Must | — | services/pos |  | Planned |
-| FR-POS-004 | Quantity entry and adjustment | Must | BR-PRD-001 | services/pos |  | Planned |
-| FR-POS-005 | Unit price display | Must | BR-POS-001 | services/pos |  | Planned |
-| FR-POS-006 | Line and order discounts | Must | BR-POS-004, BR-PRM-001 | services/pos |  | Planned |
-| FR-POS-007 | Tax and totals | Must | BR-POS-001 | services/pos |  | Planned |
-| FR-POS-008 | Customer selection | Must | BR-CUS-001 | services/pos |  | Planned |
-| FR-POS-009 | Hold and resume sale | Must | BR-POS-003 | services/pos |  | Planned |
-| FR-POS-010 | Cancel sale | Must | BR-POS-004 | services/pos |  | Planned |
-| FR-POS-011 | Availability and out-of-stock warnings | Must | BR-POS-002 | services/pos |  | Planned |
-| FR-POS-012 | Price overrides | Must | BR-POS-004 | services/pos |  | Planned |
-| FR-POS-013 | Refund and return initiation | Must | BR-RET-001 | services/pos |  | Planned |
-| FR-POS-014 | Cashier and terminal identification | Must | — | services/pos |  | Planned |
-| FR-POS-015 | Sales history on POS | Must | — | services/pos |  | Planned |
+| FR-POS-001 | Barcode scanning | Must | BR-PRD-003 | services/pos | tests/api/test_sales.py::test_server_calculates_totals_and_ignores_client_amounts | Done |
+| FR-POS-002 | Product search | Must | — | services/pos | tests/api/test_catalog.py::test_search_by_name_sku_and_barcode (POS uses GET /products?sellable=true) | Done |
+| FR-POS-003 | Category browsing | Must | — | services/pos | categories and favourites (is_favourite sorts first) served by /categories and /products | Done |
+| FR-POS-004 | Quantity entry and adjustment | Must | BR-PRD-001 | services/pos | tests/api/test_sales.py::test_server_calculates_totals_and_ignores_client_amounts, test_box_unit_uses_base_price_times_factor | Done |
+| FR-POS-005 | Unit price display | Must | BR-POS-001 | services/pos | tests/api/test_sales.py::test_server_calculates_totals_and_ignores_client_amounts | Done |
+| FR-POS-006 | Line and order discounts | Must | BR-POS-004, BR-PRM-001 | services/pos | tests/api/test_sales.py::test_discount_within_limit_and_above_limit, test_order_discount_is_shared_across_lines | Done |
+| FR-POS-007 | Tax and totals | Must | BR-POS-001 | services/pos | tests/api/test_sales.py::test_server_calculates_totals_and_ignores_client_amounts (exclusive tax; inclusive mode by setting) | Done |
+| FR-POS-008 | Customer selection | Must | BR-CUS-001 | services/pos | walk-in only until customers arrive in Phase 6 | Planned |
+| FR-POS-009 | Hold and resume sale | Must | BR-POS-003 | services/pos | tests/api/test_sales.py::test_hold_and_resume_reprices | Done |
+| FR-POS-010 | Cancel sale | Must | BR-POS-004 | services/pos | tests/api/test_sales.py::test_cancel_with_items_needs_approval | Done |
+| FR-POS-011 | Availability and out-of-stock warnings | Must | BR-POS-002 | services/pos | line.available returned; finalize enforces stock: tests/api/test_sales.py::test_last_unit_cannot_be_sold_twice | Done |
+| FR-POS-012 | Price overrides | Must | BR-POS-004 | services/pos | tests/api/test_sales.py::test_price_override_needs_approval | Done |
+| FR-POS-013 | Refund and return initiation | Must | BR-RET-001 | services/pos | tests/api/test_sales.py::test_partial_return_refunds_from_snapshots, test_sales_visibility (receipt lookup) | Done |
+| FR-POS-014 | Cashier and terminal identification | Must | — | services/pos | tests/api/test_sales.py::test_cash_sale_end_to_end (cashier, terminal, session, branch on each sale) | Done |
+| FR-POS-015 | Sales history on POS | Must | — | services/pos | tests/api/test_sales.py::test_sales_visibility | Done |
 | FR-POS-016 | Keyboard shortcuts | Should | — | services/pos |  | Planned |
-| FR-POS-017 | Idempotent sale operations | Must | BR-PAY-002 | services/pos |  | Planned |
+| FR-POS-017 | Idempotent sale operations | Must | BR-PAY-002 | services/pos | tests/api/test_sales.py::test_cash_sale_end_to_end (finalize replay) | Done |
 
 ### PAY (phase 5)
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-PAY-001 | Cash payments | Must | BR-PAY-005, BR-PAY-006 | services/payments |  | Planned |
-| FR-PAY-002 | Card payments | Must | BR-PAY-004 | services/payments |  | Planned |
-| FR-PAY-003 | QR and electronic payments | Should | BR-PAY-004 | services/payments |  | Planned |
-| FR-PAY-004 | Bank transfers | Should | — | services/payments |  | Planned |
-| FR-PAY-005 | Split payments | Must | BR-PAY-001 | services/payments |  | Planned |
-| FR-PAY-006 | Partial payments | Could | BR-PAY-007 | services/payments |  | Planned |
-| FR-PAY-007 | Change calculation | Must | BR-PAY-005 | services/payments |  | Planned |
-| FR-PAY-008 | Payment statuses | Must | BR-PAY-003 | services/payments |  | Planned |
-| FR-PAY-009 | Provider confirmation | Must | BR-PAY-004 | services/payments |  | Planned |
-| FR-PAY-010 | Duplicate prevention | Must | BR-PAY-002 | services/payments |  | Planned |
-| FR-PAY-011 | Payment failure handling | Must | — | services/payments |  | Planned |
-| FR-PAY-012 | Payment cancellation | Must | — | services/payments |  | Planned |
-| FR-PAY-013 | Payment references | Must | — | services/payments |  | Planned |
-| FR-PAY-014 | Payment reconciliation | Should | — | services/payments |  | Planned |
-| FR-PAY-015 | Pending payment recovery | Must | BR-PAY-004 | services/payments |  | Planned |
+| FR-PAY-001 | Cash payments | Must | BR-PAY-005, BR-PAY-006 | services/payments | tests/api/test_sales.py::test_cash_sale_end_to_end, test_khr_cash_rounding_and_change | Done |
+| FR-PAY-002 | Card payments | Must | BR-PAY-004 | services/payments | tests/api/test_sales.py::test_electronic_refund_waits_for_reference (standalone terminal approval code; no provider integration, V-03) | Partial |
+| FR-PAY-003 | QR and electronic payments | Should | BR-PAY-004 | services/payments | tests/api/test_sales.py::test_card_cannot_exceed_balance_and_needs_confirmation (verified reference entry; provider adapters await V-03) | Partial |
+| FR-PAY-004 | Bank transfers | Should | — | services/payments | BANK_TRANSFER with reference, same path as QR | Done |
+| FR-PAY-005 | Split payments | Must | BR-PAY-001 | services/payments | tests/api/test_sales.py::test_price_change_before_finalize_is_caught (two payments), test_exchange_creates_linked_finalized_sale | Done |
+| FR-PAY-006 | Partial payments | Could | BR-PAY-007 | services/payments | partial payments disabled (D-11); finalize returns BALANCE_DUE | Done |
+| FR-PAY-007 | Change calculation | Must | BR-PAY-005 | services/payments | tests/api/test_sales.py::test_cash_sale_end_to_end, test_usd_tender_with_riel_change | Done |
+| FR-PAY-008 | Payment statuses | Must | BR-PAY-003 | services/payments | tests/api/test_sales.py::test_card_cannot_exceed_balance_and_needs_confirmation | Done |
+| FR-PAY-009 | Provider confirmation | Must | BR-PAY-004 | services/payments | manual verified reference only; signed provider callbacks await V-03 | Partial |
+| FR-PAY-010 | Duplicate prevention | Must | BR-PAY-002 | services/payments | tests/api/test_sales.py::test_card_cannot_exceed_balance_and_needs_confirmation (duplicate reference), test_cash_sale_end_to_end (idempotency) | Done |
+| FR-PAY-011 | Payment failure handling | Must | — | services/payments | resolve FAILED keeps the sale open for another method | Done |
+| FR-PAY-012 | Payment cancellation | Must | — | services/payments | resolve CANCELLED; cancelling a sale cancels pending payments | Done |
+| FR-PAY-013 | Payment references | Must | — | services/payments | tests/api/test_sales.py::test_electronic_refund_waits_for_reference | Done |
+| FR-PAY-014 | Payment reconciliation | Should | — | services/payments | GET /payments and POST /payments/{id}/reconcile (statement import in Phase 8) | Partial |
+| FR-PAY-015 | Pending payment recovery | Must | BR-PAY-004 | services/payments | stock reservations expire automatically; provider status job in the Phase 8 worker | Partial |
 
 ### CSH (phase 5)
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-CSH-001 | Open session | Must | BR-CSH-003 | services/cash_sessions |  | Planned |
-| FR-CSH-002 | Cash sales and refunds | Must | BR-CSH-001 | services/cash_sessions |  | Planned |
-| FR-CSH-003 | Cash in and cash out | Must | — | services/cash_sessions |  | Planned |
-| FR-CSH-004 | Paid-out expenses | Should | — | services/cash_sessions |  | Planned |
-| FR-CSH-005 | Cash drops | Should | — | services/cash_sessions |  | Planned |
-| FR-CSH-006 | Expected cash calculation | Must | BR-CSH-001 | services/cash_sessions |  | Planned |
-| FR-CSH-007 | Blind closing count | Must | — | services/cash_sessions |  | Planned |
-| FR-CSH-008 | Overage and shortage | Must | BR-CSH-002 | services/cash_sessions |  | Planned |
-| FR-CSH-009 | Session closing and manager review | Must | BR-CSH-002 | services/cash_sessions |  | Planned |
-| FR-CSH-010 | Non-cash totals | Must | BR-CSH-001 | services/cash_sessions |  | Planned |
-| FR-CSH-011 | Session history | Must | — | services/cash_sessions |  | Planned |
-| FR-CSH-012 | Session permissions | Must | BR-CSH-002 | services/cash_sessions |  | Planned |
+| FR-CSH-001 | Open session | Must | BR-CSH-003 | services/cash_sessions | tests/api/test_sales.py::test_payments_and_finalize_need_an_open_session | Done |
+| FR-CSH-002 | Cash sales and refunds | Must | BR-CSH-001 | services/cash_sessions | tests/api/test_sales.py::test_void_restores_stock_and_refunds_cash | Done |
+| FR-CSH-003 | Cash in and cash out | Must | — | services/cash_sessions | tests/api/test_sales.py::test_session_close_blind_count_and_variance_approval | Done |
+| FR-CSH-004 | Paid-out expenses | Should | — | services/cash_sessions | PAID_OUT recorded; expense link in Phase 8 | Partial |
+| FR-CSH-005 | Cash drops | Should | — | services/cash_sessions | tests/api/test_sales.py::test_session_close_blind_count_and_variance_approval | Done |
+| FR-CSH-006 | Expected cash calculation | Must | BR-CSH-001 | services/cash_sessions | tests/api/test_sales.py::test_session_close_blind_count_and_variance_approval, test_void_restores_stock_and_refunds_cash | Done |
+| FR-CSH-007 | Blind closing count | Must | — | services/cash_sessions | tests/api/test_sales.py::test_session_close_blind_count_and_variance_approval | Done |
+| FR-CSH-008 | Overage and shortage | Must | BR-CSH-002 | services/cash_sessions | tests/api/test_sales.py::test_session_close_blind_count_and_variance_approval, test_close_within_tolerance_closes_directly | Done |
+| FR-CSH-009 | Session closing and manager review | Must | BR-CSH-002 | services/cash_sessions | tests/api/test_sales.py::test_session_close_blind_count_and_variance_approval (force-close endpoint included) | Done |
+| FR-CSH-010 | Non-cash totals | Must | BR-CSH-001 | services/cash_sessions | summary.non_cash_totals by method | Done |
+| FR-CSH-011 | Session history | Must | — | services/cash_sessions | GET /cashier-sessions with movements in the summary | Done |
+| FR-CSH-012 | Session permissions | Must | BR-CSH-002 | services/cash_sessions | tests/api/test_sales.py::test_session_close_blind_count_and_variance_approval | Done |
 
 ### SAL (phase 5)
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-SAL-001 | Sales transactions | Must | BR-SAL-001 | services/sales |  | Planned |
-| FR-SAL-002 | Sale lines | Must | BR-SAL-005, BR-CST-003 | services/sales |  | Planned |
-| FR-SAL-003 | Sale status | Must | BR-SAL-007 | services/sales |  | Planned |
-| FR-SAL-004 | Payment status | Must | BR-PAY-003 | services/sales |  | Planned |
+| FR-SAL-001 | Sales transactions | Must | BR-SAL-001 | services/sales | tests/api/test_sales.py::test_cash_sale_end_to_end | Done |
+| FR-SAL-002 | Sale lines | Must | BR-SAL-005, BR-CST-003 | services/sales | tests/api/test_sales.py::test_server_calculates_totals_and_ignores_client_amounts | Done |
+| FR-SAL-003 | Sale status | Must | BR-SAL-007 | services/sales | tests/api/test_sales.py::test_hold_and_resume_reprices, test_cancel_with_items_needs_approval, test_void_restores_stock_and_refunds_cash | Done |
+| FR-SAL-004 | Payment status | Must | BR-PAY-003 | services/sales | tests/api/test_sales.py::test_partial_return_refunds_from_snapshots | Done |
 | FR-SAL-005 | Fulfilment status | Could | — | services/sales |  | Planned |
-| FR-SAL-006 | Discounts and tax on sales | Must | BR-PRM-001 | services/sales |  | Planned |
-| FR-SAL-007 | Associations | Must | — | services/sales |  | Planned |
-| FR-SAL-008 | Cancellation | Must | BR-POS-004 | services/sales |  | Planned |
-| FR-SAL-009 | Void | Must | BR-SAL-003 | services/sales |  | Planned |
-| FR-SAL-010 | Returns and exchanges link | Must | BR-SAL-004 | services/sales |  | Planned |
-| FR-SAL-011 | Transaction history | Must | — | services/sales |  | Planned |
-| FR-SAL-012 | No deletion of finalized sales | Must | BR-SAL-003, BR-SAL-006 | services/sales |  | Planned |
+| FR-SAL-006 | Discounts and tax on sales | Must | BR-PRM-001 | services/sales | tests/api/test_sales.py::test_discount_within_limit_and_above_limit | Done |
+| FR-SAL-007 | Associations | Must | — | services/sales | cashier, terminal and session recorded; customer from Phase 6 | Partial |
+| FR-SAL-008 | Cancellation | Must | BR-POS-004 | services/sales | tests/api/test_sales.py::test_cancel_with_items_needs_approval | Done |
+| FR-SAL-009 | Void | Must | BR-SAL-003 | services/sales | tests/api/test_sales.py::test_void_restores_stock_and_refunds_cash | Done |
+| FR-SAL-010 | Returns and exchanges link | Must | BR-SAL-004 | services/sales | tests/api/test_sales.py::test_exchange_creates_linked_finalized_sale | Done |
+| FR-SAL-011 | Transaction history | Must | — | services/sales | tests/api/test_sales.py::test_sales_visibility | Done |
+| FR-SAL-012 | No deletion of finalized sales | Must | BR-SAL-003, BR-SAL-006 | services/sales | no delete endpoint exists for sales | Done |
 
 ### DOC (phase 5)
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-DOC-001 | Receipt generation | Must | BR-DOC-001 | services/documents |  | Planned |
-| FR-DOC-002 | Invoice generation | Should | — | services/documents |  | Planned |
-| FR-DOC-003 | Templates | Must | — | services/documents |  | Planned |
-| FR-DOC-004 | Sequential numbering | Must | BR-DOC-001 | services/documents |  | Planned |
-| FR-DOC-005 | Thermal printing | Must | — | services/documents |  | Planned |
+| FR-DOC-001 | Receipt generation | Must | BR-DOC-001 | services/documents | tests/api/test_sales.py::test_cash_sale_end_to_end (GET /sales/{id}/receipt) | Done |
+| FR-DOC-002 | Invoice generation | Should | — | services/documents | POST /sales/{id}/invoice assigns the invoice number; A4 PDF layout in Phase 8 | Partial |
+| FR-DOC-003 | Templates | Must | — | services/documents | receipt templates per branch (Phase 3) used by the receipt endpoint | Done |
+| FR-DOC-004 | Sequential numbering | Must | BR-DOC-001 | services/documents | tests/api/test_sales.py::test_last_unit_cannot_be_sold_twice (no number consumed on rollback) | Done |
+| FR-DOC-005 | Thermal printing | Must | — | services/documents | print data provided; the ESC/POS print agent is a separate local component | Partial |
 | FR-DOC-006 | PDF output | Must | — | services/documents |  | Planned |
-| FR-DOC-007 | Reprinting | Must | BR-DOC-002 | services/documents |  | Planned |
-| FR-DOC-008 | Refund references | Must | BR-RET-001 | services/documents |  | Planned |
+| FR-DOC-007 | Reprinting | Must | BR-DOC-002 | services/documents | tests/api/test_sales.py::test_cash_sale_end_to_end (COPY on reprint) | Done |
+| FR-DOC-008 | Refund references | Must | BR-RET-001 | services/documents | returns reference the original receipt number | Done |
 | FR-DOC-009 | Email delivery | Could | — | services/documents |  | Planned |
-| FR-DOC-010 | Document snapshot | Must | BR-SAL-005 | services/documents |  | Planned |
+| FR-DOC-010 | Document snapshot | Must | BR-SAL-005 | services/documents | receipts rebuilt from sale line snapshots | Done |
 
 ### INV (phase 4)
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-INV-001 | Current stock by product | Must | BR-INV-003 | services/inventory |  | Planned |
-| FR-INV-002 | Stock by branch, warehouse and location | Must | — | services/inventory |  | Planned |
-| FR-INV-003 | Movement ledger | Must | BR-INV-001 | services/inventory |  | Planned |
-| FR-INV-004 | Atomic balance updates | Must | BR-INV-003 | services/inventory |  | Planned |
-| FR-INV-005 | Stock receipts and issues | Must | — | services/inventory |  | Planned |
-| FR-INV-006 | Relocation within a warehouse | Should | — | services/inventory |  | Planned |
-| FR-INV-007 | Reservations | Should | BR-INV-009 | services/inventory |  | Planned |
-| FR-INV-008 | Availability service | Must | — | services/inventory |  | Planned |
-| FR-INV-009 | Negative stock prevention | Must | BR-INV-006 | services/inventory |  | Planned |
-| FR-INV-010 | Damaged, expired and lost stock | Must | BR-INV-005 | services/inventory |  | Planned |
-| FR-INV-011 | Write-offs | Must | BR-INV-004 | services/inventory |  | Planned |
-| FR-INV-012 | Movement history | Must | — | services/inventory |  | Planned |
-| FR-INV-013 | Corrections by reversal | Must | BR-INV-002 | services/inventory |  | Planned |
-| FR-INV-014 | Batch and expiry | Should | BR-INV-007 | services/inventory |  | Planned |
+| FR-INV-001 | Current stock by product | Must | BR-INV-003 | services/inventory | tests/api/test_inventory.py::test_product_list_shows_real_stock, test_transfer_conserves_stock | Done |
+| FR-INV-002 | Stock by branch, warehouse and location | Must | — | services/inventory | tests/api/test_inventory.py::test_transfer_conserves_stock, test_costs_hidden_and_scope_enforced | Done |
+| FR-INV-003 | Movement ledger | Must | BR-INV-001 | services/inventory | tests/api/test_inventory.py::test_ledger_is_append_only, test_every_movement_has_matching_ledger_rows | Done |
+| FR-INV-004 | Atomic balance updates | Must | BR-INV-003 | services/inventory | tests/api/test_inventory.py::test_failed_adjustment_post_changes_nothing, test_concurrent_moves_cannot_oversell | Done |
+| FR-INV-005 | Stock receipts and issues | Must | — | services/inventory | tests/api/test_inventory.py::test_opening_stock_sets_balance_and_cost (sale and purchase movements arrive with Phases 5 and 6) | Partial |
+| FR-INV-006 | Relocation within a warehouse | Should | — | services/inventory | tests/api/test_inventory.py::test_running_balance, test_reversal_posts_an_opposite_movement_once | Done |
+| FR-INV-007 | Reservations | Should | BR-INV-009 | services/inventory | reserved column and availability honour reservations; reservation records arrive with electronic payments in Phase 5 (D-07) | Partial |
+| FR-INV-008 | Availability service | Must | — | services/inventory | GET /inventory/availability; tests/api/test_inventory.py::test_product_list_shows_real_stock | Done |
+| FR-INV-009 | Negative stock prevention | Must | BR-INV-006 | services/inventory | tests/api/test_inventory.py::test_negative_stock_is_blocked | Done |
+| FR-INV-010 | Damaged, expired and lost stock | Must | BR-INV-005 | services/inventory | tests/api/test_inventory.py::test_adjustment_within_limit_posts_without_second_approval, test_transfer_conserves_stock (damaged in transit) | Done |
+| FR-INV-011 | Write-offs | Must | BR-INV-004 | services/inventory | tests/api/test_inventory.py::test_failed_adjustment_post_changes_nothing (WRITE_OFF lines) | Done |
+| FR-INV-012 | Movement history | Must | — | services/inventory | tests/api/test_inventory.py::test_running_balance, test_reversal_posts_an_opposite_movement_once | Done |
+| FR-INV-013 | Corrections by reversal | Must | BR-INV-002 | services/inventory | tests/api/test_inventory.py::test_reversal_posts_an_opposite_movement_once | Done |
+| FR-INV-014 | Batch and expiry | Should | BR-INV-007 | services/inventory | tests/api/test_inventory.py::test_expiring_batches (batch receipt via purchasing in Phase 6) | Partial |
 | FR-INV-015 | Serial numbers | Could | BR-PRD-004 | services/inventory |  | Planned |
-| FR-INV-016 | Balance reconciliation | Must | BR-INV-003 | services/inventory |  | Planned |
-| FR-INV-017 | Discrepancy reporting | Must | — | services/inventory |  | Planned |
+| FR-INV-016 | Balance reconciliation | Must | BR-INV-003 | services/inventory | tests/api/test_inventory.py::test_reconciliation_detects_tampering | Done |
+| FR-INV-017 | Discrepancy reporting | Must | — | services/inventory | tests/api/test_inventory.py::test_reconciliation_detects_tampering (flagged audit entry; report view in Phase 7) | Partial |
 
 ### CST (phase 4)
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-CST-001 | Configurable costing method | Must | BR-CST-002 | services/costing |  | Planned |
-| FR-CST-002 | Purchase cost capture | Must | BR-CST-001 | services/costing |  | Planned |
+| FR-CST-001 | Configurable costing method | Must | BR-CST-002 | services/costing | WAC fixed by D-05; settings reject other methods: tests/api/test_org.py::test_settings_defaults_validation_and_flagging | Done |
+| FR-CST-002 | Purchase cost capture | Must | BR-CST-001 | services/costing | tests/api/test_inventory.py::test_weighted_average_cost (goods receipt document in Phase 6) | Partial |
 | FR-CST-003 | Landed costs | Could | — | services/costing |  | Planned |
 | FR-CST-004 | COGS at sale | Must | BR-CST-003 | services/costing |  | Planned |
 | FR-CST-005 | Cost adjustment | Should | BR-INV-004 | services/costing |  | Planned |
 | FR-CST-006 | Returned goods valuation | Must | BR-CST-004 | services/costing |  | Planned |
-| FR-CST-007 | Damaged goods write-off | Must | BR-CST-004 | services/costing |  | Planned |
+| FR-CST-007 | Damaged goods write-off | Must | BR-CST-004 | services/costing | tests/api/test_inventory.py::test_adjustment_within_limit_posts_without_second_approval (value snapshot on DAMAGE) | Done |
 | FR-CST-008 | Inventory valuation report | Must | BR-CST-002 | services/costing |  | Planned |
 | FR-CST-009 | Gross profit calculation | Must | BR-RPT-002 | services/costing |  | Planned |
-| FR-CST-010 | Historical cost preservation | Must | BR-CST-003 | services/costing |  | Planned |
+| FR-CST-010 | Historical cost preservation | Must | BR-CST-003 | services/costing | tests/api/test_inventory.py::test_weighted_average_cost (unit cost stored on every movement) | Done |
 | FR-CST-011 | Accounting entries | Could | — | services/costing |  | Planned |
 
 ### PUR (phase 6)
@@ -260,46 +260,46 @@ Maps SRS PIMS-SRS-001 requirement IDs to backend code and tests. Status is Plann
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-TRF-001 | Transfer requests | Must | BR-TRF-001 | services/transfers |  | Planned |
-| FR-TRF-002 | Transfer approval | Must | BR-SEC-002 | services/transfers |  | Planned |
-| FR-TRF-003 | Dispatch | Must | BR-TRF-001 | services/transfers |  | Planned |
-| FR-TRF-004 | In-transit stock | Must | — | services/transfers |  | Planned |
-| FR-TRF-005 | Receipt confirmation | Must | BR-TRF-002 | services/transfers |  | Planned |
-| FR-TRF-006 | Partial receipt | Should | — | services/transfers |  | Planned |
-| FR-TRF-007 | Discrepancies | Must | BR-TRF-002 | services/transfers |  | Planned |
-| FR-TRF-008 | Cancellation | Must | — | services/transfers |  | Planned |
-| FR-TRF-009 | Transfer history | Must | — | services/transfers |  | Planned |
+| FR-TRF-001 | Transfer requests | Must | BR-TRF-001 | services/transfers | tests/api/test_inventory.py::test_transfer_conserves_stock | Done |
+| FR-TRF-002 | Transfer approval | Must | BR-SEC-002 | services/transfers | tests/api/test_inventory.py::test_transfer_conserves_stock | Done |
+| FR-TRF-003 | Dispatch | Must | BR-TRF-001 | services/transfers | tests/api/test_inventory.py::test_transfer_conserves_stock | Done |
+| FR-TRF-004 | In-transit stock | Must | — | services/transfers | tests/api/test_inventory.py::test_transfer_conserves_stock | Done |
+| FR-TRF-005 | Receipt confirmation | Must | BR-TRF-002 | services/transfers | tests/api/test_inventory.py::test_transfer_conserves_stock | Done |
+| FR-TRF-006 | Partial receipt | Should | — | services/transfers | tests/api/test_inventory.py::test_transfer_conserves_stock | Done |
+| FR-TRF-007 | Discrepancies | Must | BR-TRF-002 | services/transfers | tests/api/test_inventory.py::test_transfer_conserves_stock, test_transfer_receipt_cannot_exceed_dispatch | Done |
+| FR-TRF-008 | Cancellation | Must | — | services/transfers | tests/api/test_inventory.py (cancel before dispatch) | Done |
+| FR-TRF-009 | Transfer history | Must | — | services/transfers | tests/api/test_inventory.py::test_transfer_conserves_stock (timeline and movements by source) | Done |
 
 ### ADJ (phase 4)
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-ADJ-001 | Adjustment requests | Must | BR-INV-001 | services/adjustments |  | Planned |
-| FR-ADJ-002 | Adjustment approval | Must | BR-INV-004 | services/adjustments |  | Planned |
-| FR-ADJ-003 | Adjustment posting | Must | BR-INV-002 | services/adjustments |  | Planned |
-| FR-ADJ-004 | Cycle counting | Should | — | services/adjustments |  | Planned |
-| FR-ADJ-005 | Full stocktake | Must | — | services/adjustments |  | Planned |
-| FR-ADJ-006 | Count entry | Must | BR-INV-008 | services/adjustments |  | Planned |
-| FR-ADJ-007 | Variance calculation | Must | — | services/adjustments |  | Planned |
-| FR-ADJ-008 | Investigation | Should | — | services/adjustments |  | Planned |
-| FR-ADJ-009 | Delta posting | Must | BR-INV-008 | services/adjustments |  | Planned |
-| FR-ADJ-010 | Adjustment history | Must | BR-AUD-001 | services/adjustments |  | Planned |
+| FR-ADJ-001 | Adjustment requests | Must | BR-INV-001 | services/adjustments | tests/api/test_inventory.py::test_adjustment_reason_signs | Done |
+| FR-ADJ-002 | Adjustment approval | Must | BR-INV-004 | services/adjustments | tests/api/test_inventory.py::test_adjustment_above_limit_needs_another_approver | Done |
+| FR-ADJ-003 | Adjustment posting | Must | BR-INV-002 | services/adjustments | tests/api/test_inventory.py::test_adjustment_within_limit_posts_without_second_approval | Done |
+| FR-ADJ-004 | Cycle counting | Should | — | services/adjustments | tests/api/test_inventory.py::test_count_posts_deltas_not_absolute_quantities, test_frozen_count_blocks_movements | Done |
+| FR-ADJ-005 | Full stocktake | Must | — | services/adjustments | FULL scope supported; covered by the same count workflow tests | Done |
+| FR-ADJ-006 | Count entry | Must | BR-INV-008 | services/adjustments | tests/api/test_inventory.py::test_count_posts_deltas_not_absolute_quantities (blind entry) | Done |
+| FR-ADJ-007 | Variance calculation | Must | — | services/adjustments | tests/api/test_inventory.py::test_count_posts_deltas_not_absolute_quantities | Done |
+| FR-ADJ-008 | Investigation | Should | — | services/adjustments | tests/api/test_inventory.py::test_large_variance_needs_recount | Done |
+| FR-ADJ-009 | Delta posting | Must | BR-INV-008 | services/adjustments | tests/api/test_inventory.py::test_count_posts_deltas_not_absolute_quantities | Done |
+| FR-ADJ-010 | Adjustment history | Must | BR-AUD-001 | services/adjustments | tests/api/test_inventory.py::test_adjustment_above_limit_needs_another_approver (timeline, audit log) | Done |
 
 ### RET (phase 5)
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-RET-001 | Customer returns | Must | BR-RET-001 | services/returns |  | Planned |
-| FR-RET-002 | Full and partial returns | Must | BR-RET-001 | services/returns |  | Planned |
-| FR-RET-003 | Refunds | Must | BR-RET-005 | services/returns |  | Planned |
-| FR-RET-004 | Exchanges | Must | — | services/returns |  | Planned |
-| FR-RET-005 | Store credit | Could | — | services/returns |  | Planned |
-| FR-RET-006 | Return reasons and condition | Must | BR-RET-003 | services/returns |  | Planned |
-| FR-RET-007 | Restocking decision | Must | BR-RET-003 | services/returns |  | Planned |
-| FR-RET-008 | Refund approval | Must | BR-RET-002 | services/returns |  | Planned |
-| FR-RET-009 | Payment refund reference | Must | BR-RET-005 | services/returns |  | Planned |
-| FR-RET-010 | Eligibility rules | Must | BR-RET-004 | services/returns |  | Planned |
-| FR-RET-011 | Return receipts | Must | BR-DOC-001 | services/returns |  | Planned |
+| FR-RET-001 | Customer returns | Must | BR-RET-001 | services/returns | tests/api/test_sales.py::test_partial_return_refunds_from_snapshots | Done |
+| FR-RET-002 | Full and partial returns | Must | BR-RET-001 | services/returns | tests/api/test_sales.py::test_partial_return_refunds_from_snapshots, test_damaged_return_goes_to_damaged_location_and_large_refund_needs_approval | Done |
+| FR-RET-003 | Refunds | Must | BR-RET-005 | services/returns | tests/api/test_sales.py::test_partial_return_refunds_from_snapshots | Done |
+| FR-RET-004 | Exchanges | Must | — | services/returns | tests/api/test_sales.py::test_exchange_creates_linked_finalized_sale | Done |
+| FR-RET-005 | Store credit | Could | — | services/returns | store credit arrives with customers (Phase 6) | Planned |
+| FR-RET-006 | Return reasons and condition | Must | BR-RET-003 | services/returns | tests/api/test_sales.py::test_damaged_return_goes_to_damaged_location_and_large_refund_needs_approval | Done |
+| FR-RET-007 | Restocking decision | Must | BR-RET-003 | services/returns | tests/api/test_sales.py::test_damaged_return_goes_to_damaged_location_and_large_refund_needs_approval | Done |
+| FR-RET-008 | Refund approval | Must | BR-RET-002 | services/returns | tests/api/test_sales.py::test_damaged_return_goes_to_damaged_location_and_large_refund_needs_approval | Done |
+| FR-RET-009 | Payment refund reference | Must | BR-RET-005 | services/returns | tests/api/test_sales.py::test_electronic_refund_waits_for_reference | Done |
+| FR-RET-010 | Eligibility rules | Must | BR-RET-004 | services/returns | window and returnable flags checked in the quote; approval when breached | Done |
+| FR-RET-011 | Return receipts | Must | BR-DOC-001 | services/returns | return data references the original receipt; return print layout uses the print agent | Partial |
 
 ### CUS (phase 6)
 
@@ -350,16 +350,16 @@ Maps SRS PIMS-SRS-001 requirement IDs to backend code and tests. Status is Plann
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-ALR-001 | Low-stock alerts | Must | — | services/alerts |  | Planned |
-| FR-ALR-002 | Out-of-stock alerts | Must | — | services/alerts |  | Planned |
-| FR-ALR-003 | Overstock alerts | Should | — | services/alerts |  | Planned |
-| FR-ALR-004 | Expiration warnings | Should | BR-INV-005 | services/alerts |  | Planned |
-| FR-ALR-005 | Reorder suggestions | Should | BR-PUR-002 | services/alerts |  | Planned |
-| FR-ALR-006 | Slow-moving alerts | Should | — | services/alerts |  | Planned |
-| FR-ALR-007 | Negative stock alerts | Must | BR-INV-006 | services/alerts |  | Planned |
-| FR-ALR-008 | Unusual adjustment alerts | Should | BR-INV-004 | services/alerts |  | Planned |
-| FR-ALR-009 | Configurable thresholds | Must | — | services/alerts |  | Planned |
-| FR-ALR-010 | Assignment and lifecycle | Should | — | services/alerts |  | Planned |
+| FR-ALR-001 | Low-stock alerts | Must | — | services/alerts | tests/api/test_inventory.py::test_alerts_raise_and_resolve | Done |
+| FR-ALR-002 | Out-of-stock alerts | Must | — | services/alerts | raised by /alerts/evaluate with the same mechanism as low stock | Done |
+| FR-ALR-003 | Overstock alerts | Should | — | services/alerts | raised by /alerts/evaluate against max level | Done |
+| FR-ALR-004 | Expiration warnings | Should | BR-INV-005 | services/alerts | tests/api/test_inventory.py::test_expiring_batches | Done |
+| FR-ALR-005 | Reorder suggestions | Should | BR-PUR-002 | services/alerts | tests/api/test_inventory.py::test_alerts_raise_and_resolve (supplier and on-order from Phase 6) | Partial |
+| FR-ALR-006 | Slow-moving alerts | Should | — | services/alerts | raised by /alerts/evaluate from last SALE movement (sales from Phase 5) | Partial |
+| FR-ALR-007 | Negative stock alerts | Must | BR-INV-006 | services/alerts | raised by /alerts/evaluate when a balance is negative | Done |
+| FR-ALR-008 | Unusual adjustment alerts | Should | BR-INV-004 | services/alerts | tests/api/test_inventory.py::test_unusual_adjustment_raises_alert | Done |
+| FR-ALR-009 | Configurable thresholds | Must | — | services/alerts | thresholds in company settings and product/warehouse levels | Done |
+| FR-ALR-010 | Assignment and lifecycle | Should | — | services/alerts | tests/api/test_inventory.py::test_alerts_raise_and_resolve (snooze, auto-resolve) | Done |
 
 ### EXP (phase 8)
 

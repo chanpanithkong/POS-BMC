@@ -17,7 +17,7 @@ import uuid
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import case, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -28,6 +28,7 @@ from app.models import (
     Brand,
     Category,
     Company,
+    InventoryBalance,
     Product,
     ProductBarcode,
     ProductBranchSetting,
@@ -36,6 +37,7 @@ from app.models import (
     Unit,
     UnitConversion,
     Warehouse,
+    WarehouseLocation,
 )
 from app.schemas import catalog as s
 from app.services import pricing
@@ -150,11 +152,22 @@ async def product_view(db: AsyncSession, actor: Principal, product: Product) -> 
         category_name=category.name_en if category else "",
         brand_name=brand.name if brand else "",
         unit_code=unit.code if unit else "",
-        # Stock balances are introduced with inventory (Phase 4); until then nothing is on hand.
-        available=Decimal("0"),
-        on_hand=Decimal("0"),
+        **await _stock_totals(db, actor, product.id),
     )
     return view
+
+
+async def _stock_totals(db: AsyncSession, actor: Principal, product_id: uuid.UUID) -> dict[str, Decimal]:
+    """On hand across the caller's warehouses (in transit excluded) and sellable quantity at sellable locations."""
+    from app.services.stock import visible_warehouses
+
+    row = (await db.execute(
+        select(func.coalesce(func.sum(InventoryBalance.on_hand), 0),
+               func.coalesce(func.sum(case((WarehouseLocation.is_available_for_sale, InventoryBalance.on_hand - InventoryBalance.reserved), else_=0)), 0))
+        .join(WarehouseLocation, WarehouseLocation.id == InventoryBalance.location_id)
+        .where(InventoryBalance.product_id == product_id, InventoryBalance.warehouse_id.in_(visible_warehouses(actor)))
+    )).one()
+    return {"on_hand": Decimal(row[0]), "available": Decimal(row[1])}
 
 
 # Validation helpers

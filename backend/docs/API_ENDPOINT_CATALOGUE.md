@@ -87,53 +87,56 @@ Conventions for every endpoint (SRS 13.1):
 
 | Method | Path | Permission | Phase | Status |
 |---|---|---|---|---|
-| GET | /inventory/balances | inventory.stock.view | 4 |
-| GET | /inventory/availability | inventory.stock.view or pos.sale.create | 4 |
-| GET | /inventory/movements | inventory.stock.view | 4 |
-| POST | /inventory/movements/{id}/reverse | inventory.movement.reverse **IK** | 4 |
-| POST | /inventory/relocations | inventory.transfer.create **IK** | 4 |
-| POST | /inventory/reconciliation | inventory.stock.view | 4 |
-| GET | /inventory/batches | inventory.stock.view | 4 |
-| GET | /inventory/reorder-suggestions | purchasing.order.view | 4 |
-| GET POST PATCH | /inventory/adjustments, /{id} | inventory.adjustment.create | 4 |
-| POST | /inventory/adjustments/{id}/submit, /approve, /reject, /post | create; approve; post **IK** | 4 |
-| GET POST | /inventory/transfers | inventory.transfer.create | 4 |
-| POST | /inventory/transfers/{id}/approve, /dispatch, /receive, /close, /cancel | approve; dispatch and receive **IK** | 4 |
-| GET POST | /inventory/counts | inventory.count.create | 4 |
-| PATCH | /inventory/counts/{id}/lines | inventory.count.create | 4 |
-| POST | /inventory/counts/{id}/submit, /recount, /approve, /post, /cancel | count; approve; post **IK** | 4 |
-| GET | /alerts | inventory.alert.view | 4 |
-| POST | /alerts/{id}/action, /alerts/evaluate | inventory.alert.manage | 4 |
+| GET | /inventory/balances | inventory.stock.view | 4 | Done, tested |
+| GET | /inventory/availability | inventory.stock.view or pos.sale.create | 4 | Done, tested |
+| GET | /inventory/movements | inventory.stock.view | 4 | Done, tested |
+| POST | /inventory/movements/{id}/reverse | inventory.movement.reverse **IK** | 4 | Done, tested |
+| POST | /inventory/relocations | inventory.transfer.create **IK** | 4 | Done, tested |
+| POST | /inventory/reconciliation | inventory.stock.view | 4 | Done, tested |
+| POST | /inventory/opening-balances | inventory.adjustment.approve **IK** (products that never moved) | 4 | Done, tested |
+| DELETE | /inventory/adjustments/{id} | inventory.adjustment.create (cancels; record kept) | 4 | Done, tested |
+| GET | /inventory/batches | inventory.stock.view | 4 | Done, tested |
+| GET | /inventory/reorder-suggestions | purchasing.order.view | 4 | Done, tested |
+| GET POST PATCH | /inventory/adjustments, /{id} | inventory.adjustment.create | 4 | Done, tested |
+| POST | /inventory/adjustments/{id}/submit, /approve, /reject, /post | create; approve; post **IK** | 4 | Done, tested |
+| GET POST | /inventory/transfers | inventory.transfer.create | 4 | Done, tested |
+| POST | /inventory/transfers/{id}/approve, /dispatch, /receive, /close, /cancel | approve; dispatch and receive **IK** | 4 | Done, tested |
+| GET POST | /inventory/counts | inventory.count.create | 4 | Done, tested |
+| PATCH | /inventory/counts/{id}/lines | inventory.count.create | 4 | Done, tested |
+| POST | /inventory/counts/{id}/submit, /recount, /approve, /post, /cancel | count; approve; post **IK** | 4 | Done, tested |
+| GET | /alerts | inventory.alert.view | 4 | Done, tested |
+| POST | /alerts/{id}/action, /alerts/evaluate | inventory.alert.manage | 4 | Done, tested |
 
 ## POS, payments, cash, sales, documents, returns (POS, PAY, CSH, SAL, DOC, RET)
 
 | Method | Path | Permission | Phase | Status |
 |---|---|---|---|---|
-| POST | /sales | pos.sale.create **IK** | 5 |
-| GET | /sales | sales.sale.view (own terminal without sales.sale.view_all) | 5 |
-| GET | /sales/current, /sales/held | pos.sale.create | 5 |
-| GET PATCH | /sales/{id} | view; PATCH line operations with If-Match | 5 |
-| POST | /sales/{id}/hold, /resume | pos.sale.hold | 5 |
-| POST | /sales/{id}/finalize | pos.sale.create **IK** | 5 |
-| POST | /sales/{id}/cancel | pos.sale.cancel **IK** | 5 |
-| POST | /sales/{id}/void | sales.sale.void, approver ≠ cashier **IK** | 5 |
-| GET POST | /sales/{id}/payments | pos.sale.create **IK** | 5 |
-| POST | /sales/{id}/payments/{pid}/resolve | pos.sale.create | 5 |
-| GET | /payments | payments.payment.view | 5 |
-| POST | /payments/{id}/refund | sales.refund.process **IK** | 5 |
-| POST | /payments/{id}/reconcile | payments.payment.reconcile | 5 |
-| GET | /sales/{id}/receipt | sales.sale.view | 5 |
-| POST | /sales/{id}/reprint, /invoice | sales.sale.view | 5 |
-| POST | /sales/{id}/returns/quote | sales.return.create | 5 |
-| POST | /sales/{id}/returns | sales.return.create (+ approval) **IK** | 5 |
-| GET | /returns, /refunds | sales.sale.view | 5 |
-| POST | /returns/{id}/confirm-refund | sales.refund.process | 5 |
-| GET | /cashier-sessions, /cashier-sessions/current | cash.session.view | 5 |
-| POST | /cashier-sessions/open | cash.session.open **IK** | 5 |
-| GET | /cashier-sessions/{id}/summary | cash.session.view (expected hidden until count) | 5 |
-| POST | /cashier-sessions/{id}/movements | cash.session.open (+ approval above threshold) | 5 |
-| POST | /cashier-sessions/{id}/close | cash.session.close **IK** | 5 |
-| POST | /cashier-sessions/{id}/approve, /force-close | cash.session.approve | 5 |
+| POST | /sales | pos.sale.create **IK** | 5 | Done, tested |
+| GET | /sales | sales.sale.view (own terminal without sales.sale.view_all) | 5 | Done, tested |
+| GET | /sales/current, /sales/held | pos.sale.create | 5 | Done, tested |
+| GET PATCH | /sales/{id} | view; PATCH line operations with If-Match | 5 | Done, tested |
+| POST | /sales/{id}/hold, /resume | pos.sale.hold | 5 | Done, tested |
+| POST | /sales/{id}/finalize | pos.sale.create **IK** | 5 | Done, tested |
+| POST | /sales/{id}/cancel | pos.sale.cancel **IK** | 5 | Done, tested |
+| POST | /sales/{id}/void | sales.sale.void, approver ≠ cashier **IK** | 5 | Done, tested |
+| GET POST | /sales/{id}/payments | pos.sale.create **IK** | 5 | Done, tested |
+| POST | /sales/{id}/payments/{pid}/resolve | pos.sale.create | 5 | Done, tested |
+| GET | /payments | payments.payment.view | 5 | Done, tested |
+| POST | /payments/{id}/refund | sales.refund.process **IK** | 5 | Done, tested |
+| POST | /payments/{id}/reconcile | payments.payment.reconcile | 5 | Done, tested |
+| GET | /sales/{id}/receipt | sales.sale.view | 5 | Done, tested |
+| POST | /sales/{id}/reprint, /invoice | sales.sale.view | 5 | Done, tested |
+| POST | /sales/{id}/returns/quote | sales.return.create | 5 | Done, tested |
+| POST | /sales/{id}/returns | sales.return.create (+ approval) **IK** | 5 | Done, tested |
+| GET | /returns, /refunds | sales.sale.view | 5 | Done, tested |
+| POST | /returns/{id}/confirm-refund | sales.refund.process | 5 | Done, tested |
+| POST | /refunds/{id}/confirm | sales.refund.process (pending refunds from voids) | 5 | Done, tested |
+| GET | /cashier-sessions, /cashier-sessions/current | cash.session.view | 5 | Done, tested |
+| POST | /cashier-sessions/open | cash.session.open **IK** | 5 | Done, tested |
+| GET | /cashier-sessions/{id}/summary | cash.session.view (expected hidden until count) | 5 | Done, tested |
+| POST | /cashier-sessions/{id}/movements | cash.session.open (+ approval above threshold) | 5 | Done, tested |
+| POST | /cashier-sessions/{id}/close | cash.session.close **IK** | 5 | Done, tested |
+| POST | /cashier-sessions/{id}/approve, /force-close | cash.session.approve | 5 | Done, tested |
 
 ## Purchasing and customers (PUR, GRN, CUS)
 

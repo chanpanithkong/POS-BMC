@@ -94,7 +94,7 @@ async def test_tax_code_rate_change_is_flagged(client: httpx.AsyncClient, world:
 async def test_payment_methods_seeded(client: httpx.AsyncClient, world: World, login: LoginFn):
     headers = await login(await world.user("CASHIER"))
     methods = {m["code"]: m["requires_reference"] for m in (await client.get(f"{API}/payment-methods", headers=headers)).json()["items"]}
-    assert methods == {"CASH": False, "CARD": True, "QR": True, "BANK_TRANSFER": True}
+    assert methods == {"CASH": False, "CARD": True, "QR": True, "BANK_TRANSFER": True, "STORE_CREDIT": False}
 
 
 async def test_exchange_rates_append_only(client: httpx.AsyncClient, world: World, login: LoginFn):

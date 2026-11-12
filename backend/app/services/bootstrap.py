@@ -15,10 +15,10 @@ DEFAULT_SEQUENCES = [
     ("ADJUSTMENT", "ADJ", False, True, 5), ("COUNT", "CNT", False, True, 5), ("SUPPLIER_RETURN", "PRT", False, True, 5),
     ("EXPENSE", "EXP", True, True, 5), ("SESSION", "S", False, False, 5),
     # Catalogue numbering: automatic SKUs and in-store EAN-13 barcodes (prefix 20-29 is reserved for in-store use).
-    ("SKU", "SKU", False, False, 6), ("BARCODE", "20", False, False, 10),
+    ("SKU", "SKU", False, False, 6), ("BARCODE", "20", False, False, 10), ("CUSTOMER", "CUS", False, False, 6),
 ]
 DEFAULT_PRICE_LISTS = [("RETAIL", "Retail"), ("WHOLESALE", "Wholesale")]
-DEFAULT_PAYMENT_METHODS = [("CASH", "Cash", False), ("CARD", "Card", True), ("QR", "KHQR / QR", True), ("BANK_TRANSFER", "Bank transfer", True)]
+DEFAULT_PAYMENT_METHODS = [("CASH", "Cash", False), ("CARD", "Card", True), ("QR", "KHQR / QR", True), ("BANK_TRANSFER", "Bank transfer", True), ("STORE_CREDIT", "Store credit", False)]
 
 # Proposed defaults from the SRS (labelled illustrative or proposed); every value is changeable.
 DEFAULT_COMPANY_SETTINGS = {

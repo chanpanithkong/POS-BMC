@@ -21,7 +21,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AppError, Conflict, ValidationFailed
-from app.models import Branch, Company, PriceChange, PriceList, Product, ProductPrice, UnitConversion, User
+from app.models import Branch, Company, CustomerGroup, PriceChange, PriceList, Product, ProductPrice, UnitConversion, User
 from app.schemas.catalog import BulkPriceInput, PriceCreate
 from app.services.common import owned, record_audit
 from app.services.principal import Principal
@@ -80,21 +80,27 @@ async def resolve(db: AsyncSession, product: Product, unit_id: uuid.UUID, *, bra
     company = await db.get(Company, product.company_id)
     branch_pricing = bool(company and (company.settings or {}).get("branch_pricing_enabled", True))
     retail = await price_list(db, product.company_id, "RETAIL")
+    group = await db.get(CustomerGroup, customer_group_id) if customer_group_id else None
+    if group is not None and group.status != "ACTIVE":
+        group = None
     candidates: list[tuple[str, uuid.UUID, uuid.UUID | None, uuid.UUID | None]] = []
-    if customer_group_id:
-        group_lists = await db.scalars(select(PriceList.id).where(PriceList.company_id == product.company_id, PriceList.type == "GROUP", PriceList.status == "ACTIVE"))
-        candidates += [("CUSTOMER_GROUP", lid, None, customer_group_id) for lid in group_lists]
+    if group is not None and group.price_list_id:
+        candidates.append(("CUSTOMER_GROUP", group.price_list_id, None, group.id))
     if branch_id and branch_pricing:
         candidates.append(("BRANCH", retail.id, branch_id, None))
     candidates.append(("RETAIL", retail.id, None, None))
-    for source, list_id, scope_branch, group in candidates:
-        price = await _row_price(db, product.id, unit_id, list_id, scope_branch, group, at)
-        if price is not None:
-            return Resolved(price, source)
-        if unit_id != product.base_unit_id:
-            base = await _row_price(db, product.id, product.base_unit_id, list_id, scope_branch, group, at)
+    for source, list_id, scope_branch, group_id in candidates:
+        found = await _row_price(db, product.id, unit_id, list_id, scope_branch, group_id, at)
+        if found is None and unit_id != product.base_unit_id:
+            base = await _row_price(db, product.id, product.base_unit_id, list_id, scope_branch, group_id, at)
             if base is not None:
-                return Resolved((base * factor).quantize(Decimal("0.0001"), ROUND_HALF_UP), f"{source}_BASE_UNIT")
+                found, source = (base * factor).quantize(Decimal("0.0001"), ROUND_HALF_UP), f"{source}_BASE_UNIT"
+        if found is None:
+            continue
+        if group is not None and group.discount_pct > 0 and not source.startswith("CUSTOMER_GROUP"):
+            # Without a group price, the group's discount applies to the branch or retail price.
+            return Resolved((found * (1 - group.discount_pct / 100)).quantize(Decimal("0.0001"), ROUND_HALF_UP), "CUSTOMER_GROUP_DISCOUNT")
+        return Resolved(found, source)
     return Resolved(None, None)
 
 
@@ -126,7 +132,12 @@ async def set_price(
     if await unit_factor(db, product, unit_id) is None:
         raise ValidationFailed("unit_id", "This unit is not set up for the product.")
     if customer_group_id is not None:
-        raise ValidationFailed("customer_group_id", "Customer-group prices arrive with customers (Phase 6).")
+        group = await owned(db, CustomerGroup, customer_group_id, actor, "Customer group")
+        if not group.price_list_id:
+            raise ValidationFailed("customer_group_id", "This customer group has no price list.")
+        price_list_id = price_list_id or group.price_list_id
+        if price_list_id != group.price_list_id:
+            raise ValidationFailed("price_list_id", "Group prices belong on the group's own price list.")
     plist = await owned(db, PriceList, price_list_id, actor, "Price list") if price_list_id else await price_list(db, actor.company_id, list_code or "RETAIL")
     if plist.status != "ACTIVE":
         raise ValidationFailed("price_list_id", "This price list is inactive.")
@@ -146,7 +157,7 @@ async def set_price(
     scope = [
         ProductPrice.product_id == product.id, ProductPrice.unit_id == unit_id, ProductPrice.price_list_id == plist.id,
         ProductPrice.branch_id.is_(None) if branch_id is None else ProductPrice.branch_id == branch_id,
-        ProductPrice.customer_group_id.is_(None),
+        ProductPrice.customer_group_id.is_(None) if customer_group_id is None else ProductPrice.customer_group_id == customer_group_id,
     ]
     overlapping = list(await db.scalars(
         select(ProductPrice).where(*scope, or_(ProductPrice.effective_to.is_(None), ProductPrice.effective_to > start), *([ProductPrice.effective_from < effective_to] if effective_to else []))
@@ -164,7 +175,7 @@ async def set_price(
     if current is not None:
         current.effective_to = start
     row = ProductPrice(
-        company_id=actor.company_id, product_id=product.id, unit_id=unit_id, price_list_id=plist.id, branch_id=branch_id,
+        company_id=actor.company_id, product_id=product.id, unit_id=unit_id, price_list_id=plist.id, branch_id=branch_id, customer_group_id=customer_group_id,
         price=price, effective_from=start, effective_to=effective_to, created_by=actor.user_id,
     )
     db.add(row)
@@ -172,7 +183,7 @@ async def set_price(
         await db.flush()
     except IntegrityError as exc:  # the EXCLUDE constraint is the final guard against overlaps
         raise Conflict("This price overlaps another price for the same scope.", code="PRICE_SCHEDULE_CONFLICT") from exc
-    label = await _scope_label(db, plist, branch_id, None)
+    label = await _scope_label(db, plist, branch_id, customer_group_id)
     db.add(PriceChange(company_id=actor.company_id, product_id=product.id, price_id=row.id, scope=label, old_price=current.price if current else None, new_price=price,
                        effective_from=start, user_id=actor.user_id, user_name=actor.full_name))
     await record_audit(db, actor, "PRICE_CHANGED", "PRC", "product", product.id, before={"scope": label, "price": str(current.price)} if current else None,
@@ -204,11 +215,11 @@ async def delete_price(db: AsyncSession, actor: Principal, price_id: uuid.UUID) 
     previous = await db.scalar(select(ProductPrice).where(
         ProductPrice.product_id == row.product_id, ProductPrice.unit_id == row.unit_id, ProductPrice.price_list_id == row.price_list_id,
         ProductPrice.branch_id.is_(None) if row.branch_id is None else ProductPrice.branch_id == row.branch_id,
-        ProductPrice.customer_group_id.is_(None), ProductPrice.effective_to == row.effective_from,
+        ProductPrice.customer_group_id.is_(None) if row.customer_group_id is None else ProductPrice.customer_group_id == row.customer_group_id, ProductPrice.effective_to == row.effective_from,
     ).with_for_update())
     plist = await db.get(PriceList, row.price_list_id)
     assert plist is not None
-    label = await _scope_label(db, plist, row.branch_id, None)
+    label = await _scope_label(db, plist, row.branch_id, row.customer_group_id)
     db.add(PriceChange(company_id=actor.company_id, product_id=product.id, price_id=None, scope=label + " (scheduled price removed)", old_price=row.price,
                        new_price=previous.price if previous else None, effective_from=row.effective_from, user_id=actor.user_id, user_name=actor.full_name))
     await db.delete(row)

@@ -36,8 +36,11 @@ ACTION_PERMISSION = {
 class ApprovalRequired(AppError):
     status_code, code = 403, "APPROVAL_REQUIRED"
 
-    def __init__(self, action: str, message: str):
-        super().__init__(message, details=[{"action": action, "message": message}])
+    def __init__(self, action: str, message: str, amount: Decimal | None = None):
+        detail: dict = {"action": action, "message": message}
+        if amount is not None:
+            detail["amount"] = str(amount)
+        super().__init__(message, details=[detail])
 
 
 class SodViolation(AppError):
@@ -80,14 +83,20 @@ async def verify_pin(db: AsyncSession, requester: Principal, *, pin: str, action
 async def consume(db: AsyncSession, requester: Principal, *, token: str | None, action: str, amount: Decimal = Decimal("0"), message: str) -> Approval:
     """Used by guarded commands. Raises APPROVAL_REQUIRED when the token is missing, used, expired or too small."""
     if not token:
-        raise ApprovalRequired(action, message)
+        raise ApprovalRequired(action, message, amount)
     approval = await db.scalar(select(Approval).where(Approval.token_hash == token_digest(token)).with_for_update())
     now = datetime.now(UTC)
     if approval is None or approval.used_at or approval.expires_at <= now or approval.action != action or approval.company_id != requester.company_id:
         raise ApprovalRequired(action, "This approval has expired. Please request it again.")
     if approval.requester_id != requester.user_id:
         raise SodViolation("This approval belongs to a different request.")
-    if amount > approval.amount:
-        raise ApprovalRequired(action, "The approval does not cover this amount.")
+    # The approver's permission and limit are checked again against the real amount, because the
+    # amount shown when the PIN was entered may have been an estimate.
+    permission, limit_key = ACTION_PERMISSION[action]
+    _, perms, limits = await effective_rights(db, approval.approver_id)
+    if permission not in perms:
+        raise ApprovalRequired(action, "The approver no longer has permission for this action.", amount)
+    if limit_key and amount > limits[limit_key]:
+        raise LimitExceeded(f"The approver's limit ({limits[limit_key]}) does not cover {amount}.")
     approval.used_at = now
     return approval

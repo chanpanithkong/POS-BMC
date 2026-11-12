@@ -106,8 +106,8 @@ async def test_approval_token_is_single_use_and_bound(world: World, db):
     with pytest.raises(approvals.SodViolation):
         await approvals.consume(db, other_principal, token=grant["token"], action="DISCOUNT", amount=Decimal("10"), message="m")
     await db.rollback()
-    with pytest.raises(approvals.ApprovalRequired):
-        await approvals.consume(db, principal, token=grant["token"], action="DISCOUNT", amount=Decimal("11"), message="m")
+    with pytest.raises(approvals.LimitExceeded):  # BRMGR discount limit is 20%: checked against the real amount at use
+        await approvals.consume(db, principal, token=grant["token"], action="DISCOUNT", amount=Decimal("25"), message="m")
     await db.rollback()
     await approvals.consume(db, principal, token=grant["token"], action="DISCOUNT", amount=Decimal("10"), message="m")
     await db.commit()

@@ -210,8 +210,7 @@ class ProductPrice(UUIDPk, Base):
     unit_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("units.id"))
     price_list_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("price_lists.id"))
     branch_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("branches.id"))
-    # Customer groups arrive in Phase 6; the foreign key is added then.
-    customer_group_id: Mapped[uuid.UUID | None]
+    customer_group_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("customer_groups.id"))
     price: Mapped[Money]
     effective_from: Mapped[datetime]
     effective_to: Mapped[datetime | None]

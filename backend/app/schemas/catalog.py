@@ -264,7 +264,7 @@ class ProductOut(Out):
     category_name: str
     brand_name: str
     unit_code: str
-    available: Decimal = Field(description="Sellable quantity in base units; stock is tracked from Phase 4")
+    available: Decimal = Field(description="Sellable quantity (on hand minus reserved at sellable locations) in your warehouses, base units")
     on_hand: Decimal
 
 
