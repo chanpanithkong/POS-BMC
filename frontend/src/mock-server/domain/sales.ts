@@ -14,7 +14,7 @@ import type { MockDb } from "../db";
 
 export function getTerminal(db: MockDb, id: string | null | undefined): Terminal {
   const terminal = db.terminals.find((t) => t.id === id && t.status === "ACTIVE");
-  if (!terminal) return fail(401, "TERMINAL_NOT_REGISTERED", "This device is not registered as a POS terminal.");
+  if (!terminal) return fail(409, "TERMINAL_NOT_REGISTERED", "This device is not registered as a POS terminal.");
   return terminal;
 }
 

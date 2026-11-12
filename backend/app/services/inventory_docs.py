@@ -37,7 +37,7 @@ from app.models import (
     WarehouseLocation,
 )
 from app.schemas import inventory as s
-from app.services import alerts, stock
+from app.services import alerts, notifications, stock
 from app.services.approvals import SodViolation
 from app.services.common import next_number, record_audit
 from app.services.principal import Principal
@@ -182,6 +182,8 @@ async def adjustment_action(db: AsyncSession, actor: Principal, adj_id: uuid.UUI
         if adj.requires_approval:
             adj.status = "SUBMITTED"
             _event(adj, "Submitted for approval", actor, f"Value {amount.quantize(Decimal('0.01'))} is above your limit")
+            notifications.notify(db, actor.company_id, "APPROVAL", "Adjustment awaiting approval", f"{adj.adjustment_no}: value {amount.quantize(Decimal('0.01'))} USD",
+                                 link="/inventory/adjustments", permission="inventory.adjustment.approve", branch_id=adj.branch_id)
         else:
             adj.status, adj.approved_by_name = "APPROVED", None
             _event(adj, "Submitted; within limit, no approval needed", actor)
@@ -299,6 +301,8 @@ async def create_transfer(db: AsyncSession, actor: Principal, data: s.TransferCr
         value += line.quantity * product.avg_cost
         db.add(StockTransferLine(transfer_id=transfer.id, line_no=i, product_id=product.id, quantity_requested=line.quantity))
     transfer.value = value.quantize(MONEY, ROUND_HALF_UP)
+    notifications.notify(db, actor.company_id, "TRANSFER", "Transfer requested", f"{transfer.transfer_no}: {source.name} to {destination.name}", link="/inventory/transfers",
+                         permission="inventory.transfer.approve", branch_id=source.branch_id)
     await record_audit(db, actor, "TRANSFER_REQUESTED", "TRF", "stock_transfer", transfer.id, after={"no": transfer.transfer_no, "from": source.code, "to": destination.code}, branch_id=source.branch_id)
     await db.commit()
     return await transfer_view(db, actor, transfer)

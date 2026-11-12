@@ -159,3 +159,11 @@ async def test_forgot_and_reset_password(client: httpx.AsyncClient, world: World
     assert (await client.post("/api/v1/auth/reset-password", json={"token": token, "new_password": new})).status_code == 200
     assert (await client.post("/api/v1/auth/reset-password", json={"token": token, "new_password": new_password()})).status_code == 422
     assert (await _login(client, account.user.username, new)).status_code == 200
+
+
+async def test_malformed_terminal_header_does_not_break_back_office(client: httpx.AsyncClient, world: World, login: LoginFn):
+    """A stale device id (for example one saved by the frontend's mock mode) is treated as no terminal."""
+    headers = {**await login(await world.user("CASHIER", branches=[world.branch_a])), "X-Terminal-Id": "term-tk1"}
+    assert (await client.get("/api/v1/branches", headers=headers)).status_code == 200
+    pos = await client.get("/api/v1/sales/current", headers=headers)
+    assert pos.status_code == 409 and pos.json()["error"]["code"] == "TERMINAL_NOT_REGISTERED"

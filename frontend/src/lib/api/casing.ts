@@ -5,13 +5,15 @@
  * the HTTP boundary so no screen needs to know about the wire format.
  */
 const DECIMAL_KEY =
-  /(amount|price|cost|total|balance|qty|quantity|rate|value|tendered|variance|rounding|subtotal|onhand|reserved|available|factor|base)$/i;
+  /(amount|price|cost|total|balance|qty|quantity|rate|value|tendered|variance|rounding|subtotal|onhand|reserved|available|factor|base|pct|percent|limit)$/i;
 
 function toCamel(key: string) {
   return key.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase());
 }
 
 function toSnake(key: string) {
+  // Keys that are codes rather than names, such as currency codes in { USD, KHR }, stay as they are.
+  if (!/[a-z]/.test(key)) return key;
   return key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
 }
 

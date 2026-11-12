@@ -373,3 +373,39 @@ async def test_sales_visibility(client: httpx.AsyncClient, shop: Shop, world: Wo
     assert len((await client.get(f"{API}/sales", headers=shop.owner)).json()["items"]) == 1
 
 
+
+
+async def test_expiry_tracked_stock_sells_first_expiring_first_and_void_restores_batches(client: httpx.AsyncClient, shop: Shop):
+    from datetime import date, timedelta
+
+    from app.models import Product, WarehouseLocation
+    from app.services import stock
+    from app.workers.run import system_principal
+
+    category = (await client.get(f"{API}/categories", headers=shop.owner)).json()["items"][0]["id"]
+    made = await client.post(f"{API}/products", headers=shop.owner, json={"sku": "MILK", "name_en": "Milk", "category_id": category, "base_unit_id": shop.pcs, "retail_price": "2.00",
+                                                                           "status": "ACTIVE", "track_expiry": True})
+    assert made.status_code == 201, made.text
+    db = shop.world.db
+    product = await db.get(Product, uuid.UUID(made.json()["id"]))
+    shelf = await db.get(WarehouseLocation, uuid.UUID(shop.shelf))
+    today = date.today()
+    actor = system_principal(shop.world.company.id)
+    await stock.post(db, actor, [stock.Move(product, Decimal(q), "PURCHASE_RECEIPT", "TEST", "milk", f"milk-{b}", to_location=shelf, unit_cost=Decimal("1"), batch_no=b, expiry_date=e)
+                                 for b, q, e in (("EXPIRED", 5, today - timedelta(days=1)), ("SOON", 2, today + timedelta(days=10)), ("LATER", 5, today + timedelta(days=60)))])
+    await db.commit()
+
+    async def batch_qty() -> dict:
+        rows = (await client.get(f"{API}/inventory/batches", headers=shop.owner)).json()["items"]
+        return {r["batch_no"]: Decimal(r["quantity"]) for r in rows if r["product_id"] == str(product.id) and r["location_id"] == shop.shelf}
+
+    sale = await new_sale(client, shop, {"type": "add_product", "product_id": str(product.id), "quantity": "4"})
+    await pay(client, shop, sale["id"], amount_tendered="20")
+    done = await client.post(f"{API}/sales/{sale['id']}/finalize", headers=ik(shop.cashier))
+    assert done.status_code == 200, done.text
+    assert await batch_qty() == {"EXPIRED": 5, "LATER": 3}  # SOON (2) went first, then LATER; expired stock is never sold
+    assert done.json()["lines"][0]["quantity"] == "4.0000"
+    voided = await client.post(f"{API}/sales/{sale['id']}/void", headers=ik(shop.cashier), json={"reason": "Wrong item", "approval_token": await approval(client, shop, "VOID_SALE")})
+    assert voided.status_code == 200, voided.text
+    assert await batch_qty() == {"EXPIRED": 5, "SOON": 2, "LATER": 5}
+    assert (await client.post(f"{API}/inventory/reconciliation", headers=shop.owner)).json()["differences"] == []

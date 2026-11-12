@@ -17,6 +17,16 @@ from app.models.catalog import (
 )
 from app.models.company import Company, Currency, DocumentSequence, ExchangeRate, TaxCode
 from app.models.customers import Customer, CustomerGroup, StoreCreditEntry
+from app.models.extras import (
+    Coupon,
+    Expense,
+    ExpenseCategory,
+    ImportBatch,
+    ImportPreview,
+    Notification,
+    NotificationRead,
+    Promotion,
+)
 from app.models.inventory import (
     InventoryAlert,
     InventoryBalance,
@@ -69,6 +79,7 @@ from app.models.user import (
 from app.models.warehouse import LocationType, Warehouse, WarehouseLocation
 
 __all__ = [
+    "Coupon", "Expense", "ExpenseCategory", "ImportBatch", "ImportPreview", "Notification", "NotificationRead", "Promotion",
     "Customer", "CustomerGroup", "GoodsReceipt", "GoodsReceiptLine", "ProductSupplier", "PurchaseOrder", "PurchaseOrderLine", "PurchaseReturn", "PurchaseReturnLine",
     "StoreCreditEntry", "Supplier", "SupplierInvoice", "SupplierPayment",
     "CashMovement", "CashierSession", "Refund", "Sale", "SaleLine", "SalePayment", "SalesReturn", "SalesReturnLine", "StockReservation",

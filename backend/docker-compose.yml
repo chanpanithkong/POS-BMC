@@ -27,6 +27,19 @@ services:
         condition: service_healthy
     ports:
       - "8000:8000"
+    volumes:
+      - pims_storage:/app/storage
+
+  worker:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${DB_USER:-postgres}:${DB_PASSWORD}@db:5432/${DB_NAME:-pims_db}
+    command: ["python", "-m", "app.workers.run"]
+    depends_on:
+      api:
+        condition: service_started
 
 volumes:
   pims_pgdata:
+  pims_storage:

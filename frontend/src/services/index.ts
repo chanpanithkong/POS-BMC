@@ -1,4 +1,5 @@
 import { http, newIdempotencyKey } from "@/lib/api/client";
+import { backendRoleInput, uiRole, uiUser } from "@/lib/api/permissions";
 import type {
   AddPaymentInput, ApprovalAction, ApprovalGrant, AppNotification, AuditLog, AuthResponse, BarcodeRow, Batch, Branch, Brand, BulkPricePreviewRow, CashMovement, CashMovementKind, CashSession, Category, Company, Coupon, CreateReturnInput, Currency, CurrencyAmounts, Customer, CustomerGroup,
   DashboardData, DocumentSequence, Employee, ExchangeRate, Expense, ExpenseCategory, ExpiringBatchRow, GoodsReceipt, ImportBatch, ImportPreview, ImportType, InventoryAlert, ListParams, ListResponse, PaymentMethodConfig, PriceHistoryEntry, PriceList, Product, ProductChange, ProductListItem, ProductPrice, Promotion,
@@ -18,12 +19,27 @@ function resource<T extends { id: string }, Input = Partial<T>>(path: string) {
   };
 }
 
+const uiAuth = (auth: AuthResponse): AuthResponse => ({ ...auth, user: uiUser(auth.user) });
+
+let pendingRefresh: Promise<AuthResponse> | null = null;
+
 export const authApi = {
-  login: (username: string, password: string) => http.post<AuthResponse>("/auth/login", { username, password }),
-  pin: (pin: string, terminalId: string) => http.post<AuthResponse>("/auth/pin", { pin, terminalId }),
+  login: (username: string, password: string) => http.post<AuthResponse>("/auth/login", { username, password }).then(uiAuth),
+  pin: (pin: string, terminalId: string) => http.post<AuthResponse>("/auth/pin", { pin, terminalId }).then(uiAuth),
+  /**
+   * Renews the access token from the HttpOnly refresh cookie (live API only). Calls made
+   * while one is in flight share it: refresh tokens rotate, and the backend treats a second
+   * use of the same token as theft and ends the session.
+   */
+  refresh: () => {
+    pendingRefresh ??= http.post<AuthResponse>("/auth/refresh").then(uiAuth).finally(() => {
+      pendingRefresh = null;
+    });
+    return pendingRefresh;
+  },
   logout: () => http.post<void>("/auth/logout"),
-  me: () => http.get<SessionUser>("/auth/me"),
-  updateMe: (input: Partial<Pick<User, "fullName" | "phone" | "language">>) => http.patch<SessionUser>("/auth/me", input),
+  me: () => http.get<SessionUser>("/auth/me").then(uiUser),
+  updateMe: (input: Partial<Pick<User, "fullName" | "phone" | "language">>) => http.patch<SessionUser>("/auth/me", input).then(uiUser),
   forgotPassword: (email: string) => http.post<{ message: string }>("/auth/forgot-password", { email }),
   changePassword: (currentPassword: string, newPassword: string) => http.post("/auth/change-password", { currentPassword, newPassword }),
   sessions: () => http.get<ListResponse<UserSession>>("/auth/sessions").then(items),
@@ -37,7 +53,13 @@ export const usersApi = {
   unlock: (id: string) => http.post<User>(`/users/${id}/unlock`),
   setPin: (id: string, pin: string) => http.post<User>(`/users/${id}/pin`, { pin }),
 };
-export const rolesApi = resource<Role>("/roles");
+const roleResource = resource<Role>("/roles");
+export const rolesApi = {
+  list: (query?: ListParams) => roleResource.list(query).then((rows) => rows.map(uiRole)),
+  create: (input: Partial<Role>) => roleResource.create(backendRoleInput(null, input)).then(uiRole),
+  update: (id: string, input: Partial<Role>) => roleResource.update(id, backendRoleInput(id, input)).then(uiRole),
+  remove: roleResource.remove,
+};
 export const employeesApi = resource<Employee>("/employees");
 export const auditApi = { list: () => http.get<ListResponse<AuditLog>>("/audit-logs").then(items) };
 

@@ -439,3 +439,18 @@ async def test_product_list_shows_real_stock(client: httpx.AsyncClient, store: S
     await client.post(f"{API}/inventory/relocations", headers=ik(store.owner), json={"product_id": p, "from_location_id": store.shelf, "to_location_id": store.store, "quantity": "2"})
     detail = (await client.get(f"{API}/products/{p}", headers=store.owner)).json()
     assert (detail["on_hand"], detail["available"]) == ("6.0000", "4.0000")
+
+
+async def test_relocation_moves_expiry_tracked_stock_with_its_batch(client: httpx.AsyncClient, store: Store):
+    p = await product(client, store, "MILK-REL", track_expiry=True)
+    assert (await opening(client, store, p, store.store, "5", "1", batch_no="LATE", expiry_date="2099-06-30")).status_code in (200, 201)
+    # Expiry-tracked stock keeps its batch number when moved, and asking for more than the batches hold is refused.
+    moved = await client.post(f"{API}/inventory/relocations", headers=ik(store.owner), json={"product_id": p, "from_location_id": store.store, "to_location_id": store.shelf, "quantity": "3"})
+    assert moved.status_code == 200, moved.text
+    assert moved.json()["batch_no"] == "LATE"
+    assert await on_hand(client, store, p, store.shelf) == 3 and await on_hand(client, store, p, store.store) == 2
+    batches = (await client.get(f"{API}/inventory/batches", headers=store.owner, params={"product_id": p})).json()["items"]
+    assert {(b["location_id"], b["quantity"]) for b in batches if b["batch_no"] == "LATE"} == {(store.shelf, "3.0000"), (store.store, "2.0000")}
+    too_much = await client.post(f"{API}/inventory/relocations", headers=ik(store.owner), json={"product_id": p, "from_location_id": store.store, "to_location_id": store.shelf, "quantity": "9"})
+    assert too_much.status_code == 409
+    assert await reconciled(client, store)

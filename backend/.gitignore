@@ -1,5 +1,7 @@
 .env
 .venv/
+.venv-broken/
+.venv-python315
 __pycache__/
 *.pyc
 .pytest_cache/
@@ -7,3 +9,4 @@ __pycache__/
 htmlcov/
 storage/
 *.log
+.demo-credentials

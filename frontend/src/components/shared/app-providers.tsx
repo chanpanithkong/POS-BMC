@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { authBridge } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
+import { authApi } from "@/services";
 import { useAuthStore } from "@/stores/auth-store";
 import { useUiStore } from "@/stores/ui-store";
 
@@ -30,6 +31,11 @@ export function AppProviders({ children }: { children: ReactNode }) {
     authBridge.setTerminal(useUiStore.getState().terminalId);
     const unsubscribe = useUiStore.subscribe((state) => authBridge.setTerminal(state.terminalId));
     authBridge.onUnauthorized(() => useAuthStore.getState().expire());
+    authBridge.onRefresh(async () => {
+      const auth = await authApi.refresh();
+      useAuthStore.getState().applyAuth(auth);
+      return auth.accessToken;
+    });
     void useAuthStore.getState().hydrate();
     return unsubscribe;
   }, []);

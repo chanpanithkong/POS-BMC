@@ -33,7 +33,7 @@ export default function MovementsPage() {
     { id: "to", header: "To", value: (m) => m.toLocationName, hideBelow: "lg" },
     { id: "entered", header: "Entered", value: (m) => m.quantityEntered, cell: (m) => `${formatNumber(m.quantityEntered)} ${m.unitCode}`, align: "right", hideBelow: "md" },
     { id: "qty", header: "Base qty", value: (m) => m.quantityBase, cell: (m) => formatNumber(m.quantityBase), align: "right" },
-    { id: "running", header: "Balance", value: (m) => m.runningBalance, cell: (m) => formatNumber(m.runningBalance), align: "right", hideBelow: "md" },
+    { id: "running", header: "Balance", value: (m) => m.runningBalance, cell: (m) => (m.runningBalance == null ? "—" : formatNumber(m.runningBalance)), align: "right", hideBelow: "md" },
     ...(showCost ? [{ id: "cost", header: "Cost", value: (m: StockMovement) => m.totalCost ?? 0, cell: (m: StockMovement) => formatUsd(m.totalCost), align: "right" as const, hideBelow: "xl" as const }] : []),
     { id: "ref", header: "Reference", value: (m) => m.sourceNo, hideBelow: "md" },
     { id: "user", header: "User", value: (m) => m.userName, hideBelow: "xl" },

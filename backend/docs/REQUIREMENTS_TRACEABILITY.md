@@ -2,7 +2,7 @@
 
 Maps SRS PIMS-SRS-001 requirement IDs to backend code and tests. Status is Planned, Partial or Done; Done means implemented and covered by a passing test listed in the Tests column.
 
-150 of 293 functional requirements done, 28 partial (after Phases 1 to 5; 146 tests passing).
+238 of 293 functional requirements done, 28 partial, 27 not built (after Phases 1 to 8; 187 tests passing).
 
 ## Cross-cutting requirements
 
@@ -29,7 +29,7 @@ Maps SRS PIMS-SRS-001 requirement IDs to backend code and tests. Status is Plann
 | FR-AUTH-001 | Login and logout | Must | BR-SEC-001 | services/auth, services/users | tests/api/test_auth.py::test_login_*, test_logout_revokes_access_and_refresh | Done |
 | FR-AUTH-002 | Terminal PIN login | Must | BR-SEC-002 | services/auth, services/users | tests/api/test_auth.py::test_pin_login_* | Done |
 | FR-AUTH-003 | User creation and modification | Must | BR-SEC-001 | services/auth, services/users | tests/api/test_access_control.py::test_admin_creates_user_with_scope | Done |
-| FR-AUTH-004 | Password management and reset | Must | — | services/auth, services/users | tests/api/test_auth.py::test_change_password_*, test_forgot_and_reset_password (email delivery: Phase 8 worker) | Partial |
+| FR-AUTH-004 | Password management and reset | Must | — | services/auth, services/users | tests/api/test_auth.py::test_forgot_and_reset_password; email sent by the worker when SMTP is configured | Done |
 | FR-AUTH-005 | Activation and deactivation | Must | BR-AUD-001 | services/auth, services/users | tests/api/test_auth.py::test_inactive_user_cannot_sign_in | Done |
 | FR-AUTH-006 | Role and permission management | Must | BR-SEC-002 | services/auth, services/users | tests/api/test_access_control.py::test_role_with_sod_conflict_is_flagged, test_cannot_change_own_permissions | Done |
 | FR-AUTH-007 | Session management | Must | — | services/auth, services/users | tests/api/test_auth.py::test_refresh_rotates_and_reuse_ends_the_session, test_change_password_signs_out_other_sessions | Done |
@@ -68,7 +68,7 @@ Maps SRS PIMS-SRS-001 requirement IDs to backend code and tests. Status is Plann
 | FR-PRD-005 | Prices on product | Must | BR-PRC-001 | services/products | tests/api/test_catalog.py::test_create_with_auto_sku_price_conversion_and_barcode | Done |
 | FR-PRD-006 | Purchase cost reference | Must | BR-CST-001, BR-SEC-003 | services/products | tests/api/test_catalog.py::test_costs_hidden_without_permission (cost values are maintained by inventory in Phase 4) | Partial |
 | FR-PRD-007 | Tax configuration | Must | — | services/products | tests/api/test_org.py::test_tax_code_rate_change_is_flagged (category default tax applied to products) | Done |
-| FR-PRD-008 | Supplier association | Should | — | services/products | Supplier links arrive with purchasing (Phase 6); non-empty links are rejected until then | Planned |
+| FR-PRD-008 | Supplier association | Should | — | services/products | tests/api/test_purchasing.py::test_supplier_links_drive_reorder_suggestions | Done |
 | FR-PRD-009 | Stock parameters | Must | — | services/products | tests/api/test_catalog.py::test_frontend_payload_shape_is_accepted | Done |
 | FR-PRD-010 | Product status | Must | — | services/products | tests/api/test_catalog.py::test_status_transitions, test_activation_needs_a_retail_price | Done |
 | FR-PRD-011 | Variants | Must | BR-PRD-002 | services/products | tests/api/test_catalog.py::test_variants_are_created_as_children | Done |
@@ -104,7 +104,7 @@ Maps SRS PIMS-SRS-001 requirement IDs to backend code and tests. Status is Plann
 | FR-POS-005 | Unit price display | Must | BR-POS-001 | services/pos | tests/api/test_sales.py::test_server_calculates_totals_and_ignores_client_amounts | Done |
 | FR-POS-006 | Line and order discounts | Must | BR-POS-004, BR-PRM-001 | services/pos | tests/api/test_sales.py::test_discount_within_limit_and_above_limit, test_order_discount_is_shared_across_lines | Done |
 | FR-POS-007 | Tax and totals | Must | BR-POS-001 | services/pos | tests/api/test_sales.py::test_server_calculates_totals_and_ignores_client_amounts (exclusive tax; inclusive mode by setting) | Done |
-| FR-POS-008 | Customer selection | Must | BR-CUS-001 | services/pos | walk-in only until customers arrive in Phase 6 | Planned |
+| FR-POS-008 | Customer selection | Must | BR-CUS-001 | services/pos | tests/api/test_customers.py::test_group_discount_and_group_price (set_customer) | Done |
 | FR-POS-009 | Hold and resume sale | Must | BR-POS-003 | services/pos | tests/api/test_sales.py::test_hold_and_resume_reprices | Done |
 | FR-POS-010 | Cancel sale | Must | BR-POS-004 | services/pos | tests/api/test_sales.py::test_cancel_with_items_needs_approval | Done |
 | FR-POS-011 | Availability and out-of-stock warnings | Must | BR-POS-002 | services/pos | line.available returned; finalize enforces stock: tests/api/test_sales.py::test_last_unit_cannot_be_sold_twice | Done |
@@ -133,7 +133,7 @@ Maps SRS PIMS-SRS-001 requirement IDs to backend code and tests. Status is Plann
 | FR-PAY-012 | Payment cancellation | Must | — | services/payments | resolve CANCELLED; cancelling a sale cancels pending payments | Done |
 | FR-PAY-013 | Payment references | Must | — | services/payments | tests/api/test_sales.py::test_electronic_refund_waits_for_reference | Done |
 | FR-PAY-014 | Payment reconciliation | Should | — | services/payments | GET /payments and POST /payments/{id}/reconcile (statement import in Phase 8) | Partial |
-| FR-PAY-015 | Pending payment recovery | Must | BR-PAY-004 | services/payments | stock reservations expire automatically; provider status job in the Phase 8 worker | Partial |
+| FR-PAY-015 | Pending payment recovery | Must | BR-PAY-004 | services/payments | worker releases expired reservations; provider status queries await provider integrations (V-03) | Partial |
 
 ### CSH (phase 5)
 
@@ -142,7 +142,7 @@ Maps SRS PIMS-SRS-001 requirement IDs to backend code and tests. Status is Plann
 | FR-CSH-001 | Open session | Must | BR-CSH-003 | services/cash_sessions | tests/api/test_sales.py::test_payments_and_finalize_need_an_open_session | Done |
 | FR-CSH-002 | Cash sales and refunds | Must | BR-CSH-001 | services/cash_sessions | tests/api/test_sales.py::test_void_restores_stock_and_refunds_cash | Done |
 | FR-CSH-003 | Cash in and cash out | Must | — | services/cash_sessions | tests/api/test_sales.py::test_session_close_blind_count_and_variance_approval | Done |
-| FR-CSH-004 | Paid-out expenses | Should | — | services/cash_sessions | PAID_OUT recorded; expense link in Phase 8 | Partial |
+| FR-CSH-004 | Paid-out expenses | Should | — | services/cash_sessions | tests/api/test_extras.py::test_paid_out_creates_linked_expense | Done |
 | FR-CSH-005 | Cash drops | Should | — | services/cash_sessions | tests/api/test_sales.py::test_session_close_blind_count_and_variance_approval | Done |
 | FR-CSH-006 | Expected cash calculation | Must | BR-CSH-001 | services/cash_sessions | tests/api/test_sales.py::test_session_close_blind_count_and_variance_approval, test_void_restores_stock_and_refunds_cash | Done |
 | FR-CSH-007 | Blind closing count | Must | — | services/cash_sessions | tests/api/test_sales.py::test_session_close_blind_count_and_variance_approval | Done |
@@ -162,7 +162,7 @@ Maps SRS PIMS-SRS-001 requirement IDs to backend code and tests. Status is Plann
 | FR-SAL-004 | Payment status | Must | BR-PAY-003 | services/sales | tests/api/test_sales.py::test_partial_return_refunds_from_snapshots | Done |
 | FR-SAL-005 | Fulfilment status | Could | — | services/sales |  | Planned |
 | FR-SAL-006 | Discounts and tax on sales | Must | BR-PRM-001 | services/sales | tests/api/test_sales.py::test_discount_within_limit_and_above_limit | Done |
-| FR-SAL-007 | Associations | Must | — | services/sales | cashier, terminal and session recorded; customer from Phase 6 | Partial |
+| FR-SAL-007 | Associations | Must | — | services/sales | tests/api/test_customers.py::test_group_discount_and_group_price (customer on the sale) | Done |
 | FR-SAL-008 | Cancellation | Must | BR-POS-004 | services/sales | tests/api/test_sales.py::test_cancel_with_items_needs_approval | Done |
 | FR-SAL-009 | Void | Must | BR-SAL-003 | services/sales | tests/api/test_sales.py::test_void_restores_stock_and_refunds_cash | Done |
 | FR-SAL-010 | Returns and exchanges link | Must | BR-SAL-004 | services/sales | tests/api/test_sales.py::test_exchange_creates_linked_finalized_sale | Done |
@@ -192,7 +192,7 @@ Maps SRS PIMS-SRS-001 requirement IDs to backend code and tests. Status is Plann
 | FR-INV-002 | Stock by branch, warehouse and location | Must | — | services/inventory | tests/api/test_inventory.py::test_transfer_conserves_stock, test_costs_hidden_and_scope_enforced | Done |
 | FR-INV-003 | Movement ledger | Must | BR-INV-001 | services/inventory | tests/api/test_inventory.py::test_ledger_is_append_only, test_every_movement_has_matching_ledger_rows | Done |
 | FR-INV-004 | Atomic balance updates | Must | BR-INV-003 | services/inventory | tests/api/test_inventory.py::test_failed_adjustment_post_changes_nothing, test_concurrent_moves_cannot_oversell | Done |
-| FR-INV-005 | Stock receipts and issues | Must | — | services/inventory | tests/api/test_inventory.py::test_opening_stock_sets_balance_and_cost (sale and purchase movements arrive with Phases 5 and 6) | Partial |
+| FR-INV-005 | Stock receipts and issues | Must | — | services/inventory | tests/api/test_purchasing.py::test_receipt_posts_once_and_updates_cost; sales and returns in tests/api/test_sales.py | Done |
 | FR-INV-006 | Relocation within a warehouse | Should | — | services/inventory | tests/api/test_inventory.py::test_running_balance, test_reversal_posts_an_opposite_movement_once | Done |
 | FR-INV-007 | Reservations | Should | BR-INV-009 | services/inventory | reserved column and availability honour reservations; reservation records arrive with electronic payments in Phase 5 (D-07) | Partial |
 | FR-INV-008 | Availability service | Must | — | services/inventory | GET /inventory/availability; tests/api/test_inventory.py::test_product_list_shows_real_stock | Done |
@@ -201,7 +201,7 @@ Maps SRS PIMS-SRS-001 requirement IDs to backend code and tests. Status is Plann
 | FR-INV-011 | Write-offs | Must | BR-INV-004 | services/inventory | tests/api/test_inventory.py::test_failed_adjustment_post_changes_nothing (WRITE_OFF lines) | Done |
 | FR-INV-012 | Movement history | Must | — | services/inventory | tests/api/test_inventory.py::test_running_balance, test_reversal_posts_an_opposite_movement_once | Done |
 | FR-INV-013 | Corrections by reversal | Must | BR-INV-002 | services/inventory | tests/api/test_inventory.py::test_reversal_posts_an_opposite_movement_once | Done |
-| FR-INV-014 | Batch and expiry | Should | BR-INV-007 | services/inventory | tests/api/test_inventory.py::test_expiring_batches (batch receipt via purchasing in Phase 6) | Partial |
+| FR-INV-014 | Batch and expiry | Should | BR-INV-007 | services/inventory | tests/api/test_purchasing.py::test_expiry_tracked_products_need_batch | Done |
 | FR-INV-015 | Serial numbers | Could | BR-PRD-004 | services/inventory |  | Planned |
 | FR-INV-016 | Balance reconciliation | Must | BR-INV-003 | services/inventory | tests/api/test_inventory.py::test_reconciliation_detects_tampering | Done |
 | FR-INV-017 | Discrepancy reporting | Must | — | services/inventory | tests/api/test_inventory.py::test_reconciliation_detects_tampering (flagged audit entry; report view in Phase 7) | Partial |
@@ -211,7 +211,7 @@ Maps SRS PIMS-SRS-001 requirement IDs to backend code and tests. Status is Plann
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
 | FR-CST-001 | Configurable costing method | Must | BR-CST-002 | services/costing | WAC fixed by D-05; settings reject other methods: tests/api/test_org.py::test_settings_defaults_validation_and_flagging | Done |
-| FR-CST-002 | Purchase cost capture | Must | BR-CST-001 | services/costing | tests/api/test_inventory.py::test_weighted_average_cost (goods receipt document in Phase 6) | Partial |
+| FR-CST-002 | Purchase cost capture | Must | BR-CST-001 | services/costing | tests/api/test_purchasing.py::test_receipt_posts_once_and_updates_cost | Done |
 | FR-CST-003 | Landed costs | Could | — | services/costing |  | Planned |
 | FR-CST-004 | COGS at sale | Must | BR-CST-003 | services/costing |  | Planned |
 | FR-CST-005 | Cost adjustment | Should | BR-INV-004 | services/costing |  | Planned |
@@ -226,35 +226,35 @@ Maps SRS PIMS-SRS-001 requirement IDs to backend code and tests. Status is Plann
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-PUR-001 | Supplier records | Must | — | services/purchasing |  | Planned |
-| FR-PUR-002 | Supplier contacts | Should | — | services/purchasing |  | Planned |
-| FR-PUR-003 | Purchase requisitions | Could | — | services/purchasing |  | Planned |
-| FR-PUR-004 | Purchase orders | Must | BR-PUR-002 | services/purchasing |  | Planned |
-| FR-PUR-005 | PO approval | Must | BR-PUR-001 | services/purchasing |  | Planned |
-| FR-PUR-006 | PO sending | Should | — | services/purchasing |  | Planned |
-| FR-PUR-007 | Supplier invoices and matching | Should | BR-PUR-003 | services/purchasing |  | Planned |
-| FR-PUR-008 | Purchase returns | Should | BR-INV-001 | services/purchasing |  | Planned |
-| FR-PUR-009 | Supplier credit notes | Should | — | services/purchasing |  | Planned |
-| FR-PUR-010 | Supplier payments or references | Could | — | services/purchasing |  | Planned |
-| FR-PUR-011 | Supplier balances | Could | — | services/purchasing |  | Planned |
-| FR-PUR-012 | Supplier pricing and lead times | Should | — | services/purchasing |  | Planned |
-| FR-PUR-013 | Purchase history and performance | Should | — | services/purchasing |  | Planned |
-| FR-PUR-014 | PO cancellation and short-close | Must | BR-AUD-001 | services/purchasing |  | Planned |
+| FR-PUR-001 | Supplier records | Must | — | services/purchasing | tests/api/test_purchasing.py::test_supplier_with_open_orders_cannot_be_removed | Done |
+| FR-PUR-002 | Supplier contacts | Should | — | services/purchasing | tests/api/test_purchasing.py::buy fixture (contacts on create; PATCH contacts) | Done |
+| FR-PUR-003 | Purchase requisitions | Could | — | services/purchasing | purchase requisitions not built; reorder suggestions feed PO drafts | Planned |
+| FR-PUR-004 | Purchase orders | Must | BR-PUR-002 | services/purchasing | tests/api/test_purchasing.py::test_po_approval_flow_and_on_order | Done |
+| FR-PUR-005 | PO approval | Must | BR-PUR-001 | services/purchasing | tests/api/test_purchasing.py::test_po_approval_flow_and_on_order, test_creator_cannot_approve_and_limits_apply | Done |
+| FR-PUR-006 | PO sending | Should | — | services/purchasing | tests/api/test_purchasing.py::test_po_approval_flow_and_on_order (mark sent; email delivery in Phase 8) | Partial |
+| FR-PUR-007 | Supplier invoices and matching | Should | BR-PUR-003 | services/purchasing | tests/api/test_purchasing.py::test_invoice_matching_duplicates_and_payments | Done |
+| FR-PUR-008 | Purchase returns | Should | BR-INV-001 | services/purchasing | tests/api/test_purchasing.py::test_purchase_return_flow | Done |
+| FR-PUR-009 | Supplier credit notes | Should | — | services/purchasing | tests/api/test_purchasing.py::test_purchase_return_flow (credit note reference) | Done |
+| FR-PUR-010 | Supplier payments or references | Could | — | services/purchasing | tests/api/test_purchasing.py::test_invoice_matching_duplicates_and_payments | Done |
+| FR-PUR-011 | Supplier balances | Could | — | services/purchasing | tests/api/test_purchasing.py::test_invoice_matching_duplicates_and_payments (outstanding balance) | Done |
+| FR-PUR-012 | Supplier pricing and lead times | Should | — | services/purchasing | tests/api/test_purchasing.py::test_supplier_links_drive_reorder_suggestions | Done |
+| FR-PUR-013 | Purchase history and performance | Should | — | services/purchasing | tests/api/test_purchasing.py::test_invoice_matching_duplicates_and_payments (on-time and fill rates) | Done |
+| FR-PUR-014 | PO cancellation and short-close | Must | BR-AUD-001 | services/purchasing | tests/api/test_purchasing.py::test_draft_po_delete_and_cancel, test_partial_receipt_and_short_close | Done |
 
 ### GRN (phase 6)
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-GRN-001 | Receive against PO | Must | BR-GRN-003 | services/receiving |  | Planned |
-| FR-GRN-002 | Receive without PO | Should | BR-GRN-003 | services/receiving |  | Planned |
-| FR-GRN-003 | Partial receipt | Must | — | services/receiving |  | Planned |
-| FR-GRN-004 | Barcode-assisted receiving | Must | BR-PRD-003 | services/receiving |  | Planned |
-| FR-GRN-005 | Batch, expiry and serial capture | Should | BR-INV-007, BR-PRD-004 | services/receiving |  | Planned |
-| FR-GRN-006 | Quantity verification | Must | — | services/receiving |  | Planned |
-| FR-GRN-007 | Damaged goods recording | Must | BR-GRN-002 | services/receiving |  | Planned |
-| FR-GRN-008 | Discrepancies and approval | Must | BR-GRN-002 | services/receiving |  | Planned |
-| FR-GRN-009 | Supplier delivery references | Must | — | services/receiving |  | Planned |
-| FR-GRN-010 | Single posting | Must | BR-GRN-001 | services/receiving |  | Planned |
+| FR-GRN-001 | Receive against PO | Must | BR-GRN-003 | services/receiving | tests/api/test_purchasing.py::test_receipt_posts_once_and_updates_cost | Done |
+| FR-GRN-002 | Receive without PO | Should | BR-GRN-003 | services/receiving | tests/api/test_purchasing.py::test_receipt_without_po_needs_exception_permission | Done |
+| FR-GRN-003 | Partial receipt | Must | — | services/receiving | tests/api/test_purchasing.py::test_partial_receipt_and_short_close | Done |
+| FR-GRN-004 | Barcode-assisted receiving | Must | BR-PRD-003 | services/receiving | barcode scanning is a frontend input; receipts accept product and unit | Partial |
+| FR-GRN-005 | Batch, expiry and serial capture | Should | BR-INV-007, BR-PRD-004 | services/receiving | tests/api/test_purchasing.py::test_expiry_tracked_products_need_batch (serial numbers not in scope, FR-PRD-015) | Done |
+| FR-GRN-006 | Quantity verification | Must | — | services/receiving | tests/api/test_purchasing.py::test_partial_receipt_and_short_close (short and over quantities listed) | Done |
+| FR-GRN-007 | Damaged goods recording | Must | BR-GRN-002 | services/receiving | tests/api/test_purchasing.py::test_over_delivery_needs_approval_and_damage_is_kept_apart | Done |
+| FR-GRN-008 | Discrepancies and approval | Must | BR-GRN-002 | services/receiving | tests/api/test_purchasing.py::test_over_delivery_needs_approval_and_damage_is_kept_apart | Done |
+| FR-GRN-009 | Supplier delivery references | Must | — | services/receiving | delivery note and invoice reference stored on receipts | Done |
+| FR-GRN-010 | Single posting | Must | BR-GRN-001 | services/receiving | tests/api/test_purchasing.py::test_receipt_posts_once_and_updates_cost | Done |
 
 ### TRF (phase 4)
 
@@ -293,7 +293,7 @@ Maps SRS PIMS-SRS-001 requirement IDs to backend code and tests. Status is Plann
 | FR-RET-002 | Full and partial returns | Must | BR-RET-001 | services/returns | tests/api/test_sales.py::test_partial_return_refunds_from_snapshots, test_damaged_return_goes_to_damaged_location_and_large_refund_needs_approval | Done |
 | FR-RET-003 | Refunds | Must | BR-RET-005 | services/returns | tests/api/test_sales.py::test_partial_return_refunds_from_snapshots | Done |
 | FR-RET-004 | Exchanges | Must | — | services/returns | tests/api/test_sales.py::test_exchange_creates_linked_finalized_sale | Done |
-| FR-RET-005 | Store credit | Could | — | services/returns | store credit arrives with customers (Phase 6) | Planned |
+| FR-RET-005 | Store credit | Could | — | services/returns | tests/api/test_customers.py::test_store_credit_refund_spend_and_void | Done |
 | FR-RET-006 | Return reasons and condition | Must | BR-RET-003 | services/returns | tests/api/test_sales.py::test_damaged_return_goes_to_damaged_location_and_large_refund_needs_approval | Done |
 | FR-RET-007 | Restocking decision | Must | BR-RET-003 | services/returns | tests/api/test_sales.py::test_damaged_return_goes_to_damaged_location_and_large_refund_needs_approval | Done |
 | FR-RET-008 | Refund approval | Must | BR-RET-002 | services/returns | tests/api/test_sales.py::test_damaged_return_goes_to_damaged_location_and_large_refund_needs_approval | Done |
@@ -305,29 +305,29 @@ Maps SRS PIMS-SRS-001 requirement IDs to backend code and tests. Status is Plann
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-CUS-001 | Customer profiles | Must | BR-CUS-001 | services/customers |  | Planned |
-| FR-CUS-002 | Customer search | Must | — | services/customers |  | Planned |
-| FR-CUS-003 | Walk-in customers | Must | BR-CUS-001 | services/customers |  | Planned |
-| FR-CUS-004 | Purchase history | Should | — | services/customers |  | Planned |
-| FR-CUS-005 | Customer groups and pricing groups | Should | BR-PRC-002 | services/customers |  | Planned |
-| FR-CUS-006 | Customer discounts | Should | BR-PRM-001 | services/customers |  | Planned |
-| FR-CUS-007 | Store credit | Could | — | services/customers |  | Planned |
-| FR-CUS-008 | Credit sales and statements | Could | BR-PAY-007 | services/customers |  | Planned |
-| FR-CUS-009 | Personal data controls | Must | BR-CUS-001 | services/customers |  | Planned |
+| FR-CUS-001 | Customer profiles | Must | BR-CUS-001 | services/customers | tests/api/test_customers.py::test_customer_codes_phone_uniqueness_and_masking | Done |
+| FR-CUS-002 | Customer search | Must | — | services/customers | tests/api/test_customers.py::test_customer_codes_phone_uniqueness_and_masking | Done |
+| FR-CUS-003 | Walk-in customers | Must | BR-CUS-001 | services/customers | tests/api/test_sales.py (every walk-in sale) | Done |
+| FR-CUS-004 | Purchase history | Should | — | services/customers | GET /sales filtered by customer via sale.customer_id; spend and last purchase on the profile | Partial |
+| FR-CUS-005 | Customer groups and pricing groups | Should | BR-PRC-002 | services/customers | tests/api/test_customers.py::test_group_discount_and_group_price | Done |
+| FR-CUS-006 | Customer discounts | Should | BR-PRM-001 | services/customers | tests/api/test_customers.py::test_group_discount_and_group_price | Done |
+| FR-CUS-007 | Store credit | Could | — | services/customers | tests/api/test_customers.py::test_store_credit_refund_spend_and_void, test_store_credit_needs_setting_and_customer | Done |
+| FR-CUS-008 | Credit sales and statements | Could | BR-PAY-007 | services/customers | credit sales are off (D-11); credit limit stored only | Planned |
+| FR-CUS-009 | Personal data controls | Must | BR-CUS-001 | services/customers | tests/api/test_customers.py::test_customer_codes_phone_uniqueness_and_masking, test_anonymise_keeps_history | Done |
 
 ### PRM (phase 8)
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-PRM-001 | Loyalty points | Could | — | services/promotions |  | Planned |
-| FR-PRM-002 | Membership levels | Could | — | services/promotions |  | Planned |
-| FR-PRM-003 | Promotion rules | Could | BR-PRM-001 | services/promotions |  | Planned |
-| FR-PRM-004 | Coupon codes | Could | BR-PRM-002 | services/promotions |  | Planned |
-| FR-PRM-005 | Loyalty redemption | Could | — | services/promotions |  | Planned |
-| FR-PRM-006 | Validity and limits | Could | BR-PRM-002 | services/promotions |  | Planned |
-| FR-PRM-007 | Precedence and combination | Could | BR-PRM-001 | services/promotions |  | Planned |
-| FR-PRM-008 | Return effect | Could | BR-RET-005 | services/promotions |  | Planned |
-| FR-PRM-009 | Override recording | Could | BR-POS-004 | services/promotions |  | Planned |
+| FR-PRM-001 | Loyalty points | Could | — | services/promotions | tests/api/test_customers.py::test_loyalty_and_spend_recorded | Done |
+| FR-PRM-002 | Membership levels | Could | — | services/promotions | customer tier stored; automatic tier rules not built | Partial |
+| FR-PRM-003 | Promotion rules | Could | BR-PRM-001 | services/promotions | tests/api/test_extras.py::test_price_promotion_needs_approval_and_counts_usage, test_bogo_and_manual_discount_priority | Done |
+| FR-PRM-004 | Coupon codes | Could | BR-PRM-002 | services/promotions | tests/api/test_extras.py::test_coupons | Done |
+| FR-PRM-005 | Loyalty redemption | Could | — | services/promotions | loyalty points are earned; redeeming points at the POS is not built | Planned |
+| FR-PRM-006 | Validity and limits | Could | BR-PRM-002 | services/promotions | tests/api/test_extras.py::test_price_promotion_needs_approval_and_counts_usage (usage limit), test_coupons (min spend, limit) | Done |
+| FR-PRM-007 | Precedence and combination | Could | BR-PRM-001 | services/promotions | tests/api/test_extras.py::test_bogo_and_manual_discount_priority (priority, then value; manual wins) | Done |
+| FR-PRM-008 | Return effect | Could | BR-RET-005 | services/promotions | refunds use the discounted line amounts; loyalty points are not reversed on return | Partial |
+| FR-PRM-009 | Override recording | Could | BR-POS-004 | services/promotions | approver stored on promotions, discounts and overrides; RPT-09 lists them | Done |
 
 ### PRC (phase 3)
 
@@ -336,8 +336,8 @@ Maps SRS PIMS-SRS-001 requirement IDs to backend code and tests. Status is Plann
 | FR-PRC-001 | Standard and retail price | Must | BR-PRC-001 | services/pricing | tests/api/test_catalog.py::test_new_price_closes_the_old_one_and_is_recorded | Done |
 | FR-PRC-002 | Wholesale price | Should | — | services/pricing | tests/api/test_catalog.py::test_create_with_auto_sku_price_conversion_and_barcode | Done |
 | FR-PRC-003 | Branch-specific price | Should | BR-PRC-002 | services/pricing | tests/api/test_catalog.py::test_resolution_order_and_unit_fallback | Done |
-| FR-PRC-004 | Customer-group price | Should | BR-PRC-002 | services/pricing | Customer groups arrive in Phase 6; resolution order already reserves the slot | Planned |
-| FR-PRC-005 | Promotion price | Could | BR-PRC-002 | services/pricing |  | Planned |
+| FR-PRC-004 | Customer-group price | Should | BR-PRC-002 | services/pricing | tests/api/test_customers.py::test_group_discount_and_group_price | Done |
+| FR-PRC-005 | Promotion price | Could | BR-PRC-002 | services/pricing | tests/api/test_extras.py::test_price_promotion_needs_approval_and_counts_usage | Done |
 | FR-PRC-006 | Effective dates | Must | BR-PRC-001 | services/pricing | tests/api/test_catalog.py::test_scheduled_price_can_be_removed_and_reopens_previous, test_prices_cannot_be_backdated_or_below_minimum, test_database_rejects_overlapping_prices | Done |
 | FR-PRC-007 | Price change history | Must | BR-AUD-001 | services/pricing | tests/api/test_catalog.py::test_new_price_closes_the_old_one_and_is_recorded | Done |
 | FR-PRC-008 | Bulk price updates | Should | — | services/pricing | tests/api/test_catalog.py::test_bulk_price_change | Done |
@@ -354,7 +354,7 @@ Maps SRS PIMS-SRS-001 requirement IDs to backend code and tests. Status is Plann
 | FR-ALR-002 | Out-of-stock alerts | Must | — | services/alerts | raised by /alerts/evaluate with the same mechanism as low stock | Done |
 | FR-ALR-003 | Overstock alerts | Should | — | services/alerts | raised by /alerts/evaluate against max level | Done |
 | FR-ALR-004 | Expiration warnings | Should | BR-INV-005 | services/alerts | tests/api/test_inventory.py::test_expiring_batches | Done |
-| FR-ALR-005 | Reorder suggestions | Should | BR-PUR-002 | services/alerts | tests/api/test_inventory.py::test_alerts_raise_and_resolve (supplier and on-order from Phase 6) | Partial |
+| FR-ALR-005 | Reorder suggestions | Should | BR-PUR-002 | services/alerts | tests/api/test_purchasing.py::test_supplier_links_drive_reorder_suggestions | Done |
 | FR-ALR-006 | Slow-moving alerts | Should | — | services/alerts | raised by /alerts/evaluate from last SALE movement (sales from Phase 5) | Partial |
 | FR-ALR-007 | Negative stock alerts | Must | BR-INV-006 | services/alerts | raised by /alerts/evaluate when a balance is negative | Done |
 | FR-ALR-008 | Unusual adjustment alerts | Should | BR-INV-004 | services/alerts | tests/api/test_inventory.py::test_unusual_adjustment_raises_alert | Done |
@@ -365,42 +365,42 @@ Maps SRS PIMS-SRS-001 requirement IDs to backend code and tests. Status is Plann
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-EXP-001 | Expense categories | Could | — | services/expenses |  | Planned |
-| FR-EXP-002 | Expense recording | Could | — | services/expenses |  | Planned |
-| FR-EXP-003 | Expense approval | Could | BR-SEC-002 | services/expenses |  | Planned |
-| FR-EXP-004 | Drawer paid-outs | Could | BR-CSH-001 | services/expenses |  | Planned |
-| FR-EXP-005 | Expense reporting | Could | BR-RPT-002 | services/expenses |  | Planned |
-| FR-EXP-006 | Separation from COGS | Could | BR-CST-001 | services/expenses |  | Planned |
+| FR-EXP-001 | Expense categories | Could | — | services/expenses | tests/api/test_extras.py::test_expense_thresholds_and_approval | Done |
+| FR-EXP-002 | Expense recording | Could | — | services/expenses | tests/api/test_extras.py::test_expense_thresholds_and_approval (attachments, KHR conversion) | Done |
+| FR-EXP-003 | Expense approval | Could | BR-SEC-002 | services/expenses | tests/api/test_extras.py::test_expense_thresholds_and_approval | Done |
+| FR-EXP-004 | Drawer paid-outs | Could | BR-CSH-001 | services/expenses | tests/api/test_extras.py::test_paid_out_creates_linked_expense | Done |
+| FR-EXP-005 | Expense reporting | Could | BR-RPT-002 | services/expenses | tests/api/test_extras.py::test_expense_thresholds_and_approval (RPT-33) | Done |
+| FR-EXP-006 | Separation from COGS | Could | BR-CST-001 | services/expenses | expenses never post inventory movements or COGS; RPT-33 shows them below gross profit | Done |
 
 ### DSH (phase 7)
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-DSH-001 | Owner dashboard | Should | BR-RPT-002 | services/dashboard |  | Planned |
-| FR-DSH-002 | Manager dashboard | Should | — | services/dashboard |  | Planned |
-| FR-DSH-003 | Inventory dashboard | Should | — | services/dashboard |  | Planned |
-| FR-DSH-004 | Cashier dashboard | Should | BR-CSH-001 | services/dashboard |  | Planned |
-| FR-DSH-005 | KPI definitions | Should | BR-RPT-001 | services/dashboard |  | Planned |
-| FR-DSH-006 | Permissions and scope | Must | BR-SEC-003 | services/dashboard |  | Planned |
-| FR-DSH-007 | Reconciliation with reports | Must | BR-RPT-001 | services/dashboard |  | Planned |
-| FR-DSH-008 | Drill-down | Should | — | services/dashboard |  | Planned |
+| FR-DSH-001 | Owner dashboard | Should | BR-RPT-002 | services/dashboard | tests/api/test_reports.py::test_dashboard_matches_reports (OWNER variant) | Done |
+| FR-DSH-002 | Manager dashboard | Should | — | services/dashboard | tests/api/test_reports.py::test_dashboard_matches_reports (MANAGER variant), test_dashboard_lists_pending_approvals | Done |
+| FR-DSH-003 | Inventory dashboard | Should | — | services/dashboard | INVENTORY variant: products in stock, value, low, out, expiring, in transit | Done |
+| FR-DSH-004 | Cashier dashboard | Should | BR-CSH-001 | services/dashboard | tests/api/test_reports.py::test_dashboard_matches_reports (CASHIER variant) | Done |
+| FR-DSH-005 | KPI definitions | Should | BR-RPT-001 | services/dashboard | every KPI carries its definition and source report link | Done |
+| FR-DSH-006 | Permissions and scope | Must | BR-SEC-003 | services/dashboard | tests/api/test_reports.py::test_dashboard_matches_reports (cost KPIs hidden), branch scope via principal | Done |
+| FR-DSH-007 | Reconciliation with reports | Must | BR-RPT-001 | services/dashboard | tests/api/test_reports.py::test_dashboard_matches_reports (KPIs equal RPT-01 and RPT-13) | Done |
+| FR-DSH-008 | Drill-down | Should | — | services/dashboard | KPI href links to the report with the same date range | Done |
 
 ### RPT (phase 7)
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-RPT-001 | Sales reports | Must | BR-RPT-001 | services/reports |  | Planned |
-| FR-RPT-002 | Discount, refund and void reports | Must | — | services/reports |  | Planned |
-| FR-RPT-003 | Tax summary | Should | — | services/reports |  | Planned |
-| FR-RPT-004 | Gross profit and margin | Must | BR-RPT-002, BR-SEC-003 | services/reports |  | Planned |
-| FR-RPT-005 | Inventory reports | Must | BR-INV-003 | services/reports |  | Planned |
-| FR-RPT-006 | Purchasing reports | Should | — | services/reports |  | Planned |
-| FR-RPT-007 | Cashier and payment reports | Must | BR-CSH-001 | services/reports |  | Planned |
-| FR-RPT-008 | Business performance | Should | — | services/reports |  | Planned |
-| FR-RPT-009 | Control exceptions | Should | BR-SEC-002 | services/reports |  | Planned |
-| FR-RPT-010 | Filters | Must | — | services/reports |  | Planned |
-| FR-RPT-011 | Exports and printing | Must | — | services/reports |  | Planned |
-| FR-RPT-012 | Reconciliation checks | Should | BR-INV-003 | services/reports |  | Planned |
+| FR-RPT-001 | Sales reports | Must | BR-RPT-001 | services/reports | tests/api/test_reports.py::test_daily_sales_figures, test_every_report_runs_for_the_owner | Done |
+| FR-RPT-002 | Discount, refund and void reports | Must | — | services/reports | tests/api/test_reports.py::test_void_and_refund_reports | Done |
+| FR-RPT-003 | Tax summary | Should | — | services/reports | tests/api/test_reports.py::test_void_and_refund_reports (RPT-12) | Done |
+| FR-RPT-004 | Gross profit and margin | Must | BR-RPT-002, BR-SEC-003 | services/reports | tests/api/test_reports.py::test_gross_profit_uses_sale_line_cost | Done |
+| FR-RPT-005 | Inventory reports | Must | BR-INV-003 | services/reports | tests/api/test_reports.py::test_valuation_as_of_and_stock_reconciliation, test_every_report_runs_for_the_owner | Done |
+| FR-RPT-006 | Purchasing reports | Should | — | services/reports | tests/api/test_reports.py::test_every_report_runs_for_the_owner (RPT-27 to RPT-29) | Done |
+| FR-RPT-007 | Cashier and payment reports | Must | BR-CSH-001 | services/reports | tests/api/test_reports.py::test_every_report_runs_for_the_owner (RPT-30 to RPT-32) | Done |
+| FR-RPT-008 | Business performance | Should | — | services/reports | tests/api/test_extras.py::test_expense_thresholds_and_approval (RPT-33 with expenses) | Done |
+| FR-RPT-009 | Control exceptions | Should | BR-SEC-002 | services/reports | tests/api/test_reports.py::test_void_and_refund_reports (RPT-34) | Done |
+| FR-RPT-010 | Filters | Must | — | services/reports | tests/api/test_reports.py::test_report_permission_and_branch_scope, test_valuation_as_of_and_stock_reconciliation | Done |
+| FR-RPT-011 | Exports and printing | Must | — | services/reports | tests/api/test_reports.py::test_csv_and_xlsx_exports (PDF printing is done in the browser and audited) | Done |
+| FR-RPT-012 | Reconciliation checks | Should | BR-INV-003 | services/reports | tests/api/test_reports.py::test_every_report_runs_for_the_owner (all checks pass) | Done |
 
 ### BRN (phase 7)
 
@@ -420,27 +420,27 @@ Maps SRS PIMS-SRS-001 requirement IDs to backend code and tests. Status is Plann
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-NTF-001 | Low-stock and expiration notifications | Should | — | services/notifications |  | Planned |
-| FR-NTF-002 | Purchase approval notifications | Should | BR-PUR-001 | services/notifications |  | Planned |
-| FR-NTF-003 | Receipt discrepancy notifications | Should | BR-GRN-002 | services/notifications |  | Planned |
-| FR-NTF-004 | Pending transfer notifications | Should | — | services/notifications |  | Planned |
-| FR-NTF-005 | Refund approval notifications | Must | BR-RET-002 | services/notifications |  | Planned |
-| FR-NTF-006 | Cashier closing reminders | Should | — | services/notifications |  | Planned |
-| FR-NTF-007 | System error notifications | Must | — | services/notifications |  | Planned |
-| FR-NTF-008 | In-app and email channels | Should | — | services/notifications |  | Planned |
+| FR-NTF-001 | Low-stock and expiration notifications | Should | — | services/notifications | alerts.evaluate notifies holders of inventory.alert.view | Done |
+| FR-NTF-002 | Purchase approval notifications | Should | BR-PUR-001 | services/notifications | PO submit notifies purchasing.order.approve holders | Done |
+| FR-NTF-003 | Receipt discrepancy notifications | Should | BR-GRN-002 | services/notifications | goods receipts sent for approval notify approvers | Done |
+| FR-NTF-004 | Pending transfer notifications | Should | — | services/notifications | transfer requests notify inventory.transfer.approve holders | Done |
+| FR-NTF-005 | Refund approval notifications | Must | BR-RET-002 | services/notifications | refund approval is an immediate supervisor PIN; no queued notification | Partial |
+| FR-NTF-006 | Cashier closing reminders | Should | — | services/notifications | tests/api/test_extras.py::test_worker_pass (session open > 12 h) | Done |
+| FR-NTF-007 | System error notifications | Must | — | services/notifications | worker task failures are logged; no in-app system-error notification yet | Planned |
+| FR-NTF-008 | In-app and email channels | Should | — | services/notifications | tests/api/test_extras.py::test_notifications_follow_permission_and_read_state; email only for password resets | Partial |
 
 ### IMP (phase 8)
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-IMP-001 | Product import | Must | BR-PRD-002 | services/imports |  | Planned |
-| FR-IMP-002 | Barcode import | Must | BR-PRD-003 | services/imports |  | Planned |
-| FR-IMP-003 | Supplier and customer import | Should | — | services/imports |  | Planned |
-| FR-IMP-004 | Opening inventory import | Must | BR-IMP-001 | services/imports |  | Planned |
-| FR-IMP-005 | Price import | Should | BR-PRC-001 | services/imports |  | Planned |
-| FR-IMP-006 | Stock count import | Should | BR-INV-008 | services/imports |  | Planned |
-| FR-IMP-007 | Preview and error report | Must | BR-IMP-001 | services/imports |  | Planned |
-| FR-IMP-008 | Import history | Must | — | services/imports |  | Planned |
-| FR-IMP-009 | Permission checks | Must | BR-SEC-001 | services/imports |  | Planned |
-| FR-IMP-010 | Rollback and correction | Should | BR-INV-002 | services/imports |  | Planned |
-| FR-IMP-011 | Exports | Must | BR-AUD-001 | services/imports |  | Planned |
+| FR-IMP-001 | Product import | Must | BR-PRD-002 | services/imports | tests/api/test_extras.py::test_product_import_is_all_or_nothing_and_can_roll_back | Done |
+| FR-IMP-002 | Barcode import | Must | BR-PRD-003 | services/imports | BARCODES import validates check digits and uniqueness | Done |
+| FR-IMP-003 | Supplier and customer import | Should | — | services/imports | tests/api/test_extras.py::test_customer_import_and_rollback_guard; SUPPLIERS import | Done |
+| FR-IMP-004 | Opening inventory import | Must | BR-IMP-001 | services/imports | tests/api/test_extras.py::test_opening_stock_import_posts_movements | Done |
+| FR-IMP-005 | Price import | Should | BR-PRC-001 | services/imports | PRICES import through effective-dated prices (no backdating) | Done |
+| FR-IMP-006 | Stock count import | Should | BR-INV-008 | services/imports | STOCK_COUNT import fills counted quantities on an open count | Done |
+| FR-IMP-007 | Preview and error report | Must | BR-IMP-001 | services/imports | tests/api/test_extras.py::test_product_import_is_all_or_nothing_and_can_roll_back | Done |
+| FR-IMP-008 | Import history | Must | — | services/imports | GET /imports | Done |
+| FR-IMP-009 | Permission checks | Must | BR-SEC-001 | services/imports | tests/api/test_extras.py::test_imports_need_permission | Done |
+| FR-IMP-010 | Rollback and correction | Should | BR-INV-002 | services/imports | tests/api/test_extras.py::test_product_import_is_all_or_nothing_and_can_roll_back, test_customer_import_and_rollback_guard | Done |
+| FR-IMP-011 | Exports | Must | BR-AUD-001 | services/imports | tests/api/test_reports.py::test_csv_and_xlsx_exports | Done |

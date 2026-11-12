@@ -164,12 +164,23 @@ class StockSettingsIn(Command):
 
 
 class SupplierLinkIn(Command):
-    supplier_id: str
-    supplier_sku: str = ""
-    purchase_unit_id: str = ""
-    cost: Decimal = Decimal("0")
-    lead_time_days: int = 0
+    supplier_id: uuid.UUID
+    supplier_sku: str = Field(default="", max_length=60)
+    purchase_unit_id: uuid.UUID | None = None
+    cost: Decimal = Field(default=Decimal("0"), ge=0, max_digits=19, decimal_places=4)
+    lead_time_days: int = Field(default=7, ge=0, le=365)
     preferred: bool = False
+
+    _blank = field_validator("purchase_unit_id", mode="before")(_blank_to_none)
+
+
+class SupplierLinkOut(Out):
+    supplier_id: uuid.UUID
+    supplier_sku: str
+    purchase_unit_id: uuid.UUID
+    cost: Decimal | None
+    lead_time_days: int
+    preferred: bool
 
 
 class VariantIn(Command):
@@ -202,7 +213,7 @@ class ProductFields(Command):
     stock_settings: StockSettingsIn | None = None
     warehouse_settings: dict[uuid.UUID, StockSettingsIn] | None = None
     branch_activation: dict[uuid.UUID, bool] | None = None
-    suppliers: list[SupplierLinkIn] | None = Field(default=None, description="Supplier links arrive with purchasing (Phase 6); only an empty list is accepted until then")
+    suppliers: list[SupplierLinkIn] | None = Field(default=None, description="Replaces the product's supplier links; at most one preferred")
 
     _blank = field_validator("brand_id", "tax_code_id", "category_id", "base_unit_id", mode="before")(_blank_to_none)
 
@@ -253,7 +264,7 @@ class ProductOut(Out):
     avg_cost: Decimal | None = Field(default=None, description="Only with inventory.cost.view")
     stock_settings: StockSettingsOut
     warehouse_settings: dict[uuid.UUID, StockSettingsOut]
-    suppliers: list[dict]
+    suppliers: list[SupplierLinkOut]
     track_expiry: bool
     is_favourite: bool
     has_movements: bool

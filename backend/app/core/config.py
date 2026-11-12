@@ -40,6 +40,15 @@ class Settings(BaseSettings):
     # Uploaded files (product images). Kept outside git; mount a volume in Docker.
     storage_dir: Path = BACKEND_DIR / "storage"
 
+    # Outgoing email for password resets (optional). Without SMTP_HOST the worker keeps the emails queued.
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: SecretStr = SecretStr("")
+    smtp_from: str = "no-reply@localhost"
+    smtp_starttls: bool = True
+    frontend_url: str = "http://localhost:3000"
+
     login_lock_attempts: int = 5
     login_lock_window_minutes: int = 15
 

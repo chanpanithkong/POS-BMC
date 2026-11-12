@@ -12,6 +12,7 @@ COPY alembic ./alembic
 COPY app ./app
 COPY scripts ./scripts
 
+RUN mkdir -p /app/storage && chown pims /app/storage
 USER pims
 EXPOSE 8000
 # Migrations run before the server starts; they never drop data on upgrade.

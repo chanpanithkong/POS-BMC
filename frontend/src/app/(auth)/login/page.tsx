@@ -44,7 +44,8 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [pin, setPin] = useState("");
   const [pickedTerminal, setTerminalLocal] = useState<string | null>(null);
-  const terminal = pickedTerminal ?? savedTerminal ?? "term-tk1";
+  // Live API: terminals cannot be listed before sign-in, so PIN sign-in uses the terminal this device chose at the POS.
+  const terminal = pickedTerminal ?? savedTerminal ?? (isMockMode ? "term-tk1" : "");
   const [busy, setBusy] = useState(false);
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { username: "", password: "" } });
 
@@ -135,19 +136,25 @@ export default function LoginPage() {
             </form>
           ) : (
             <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="terminal">Registered terminal</Label>
-                <Select value={terminal} onValueChange={setTerminalLocal}>
-                  <SelectTrigger id="terminal" className="w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>{DEMO_TERMINALS.map(([id, name]) => <SelectItem key={id} value={id}>{name}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
+              {isMockMode ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor="terminal">Registered terminal</Label>
+                  <Select value={terminal} onValueChange={setTerminalLocal}>
+                    <SelectTrigger id="terminal" className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>{DEMO_TERMINALS.map(([id, name]) => <SelectItem key={id} value={id}>{name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              ) : savedTerminal ? (
+                <p className="text-sm text-muted-foreground">This device is registered as a POS terminal.</p>
+              ) : (
+                <p className="rounded-md bg-muted p-2 text-sm text-muted-foreground">To use PIN sign-in, sign in once with a password and choose this device&apos;s terminal on the POS screen.</p>
+              )}
               <Input readOnly type="password" value={pin} aria-label="PIN" className="h-12 text-center text-xl tracking-[0.4em]" />
               <div className="grid grid-cols-3 gap-2">
                 {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => <Button key={d} type="button" variant="outline" className="h-12 text-lg" onClick={() => press(d)}>{d}</Button>)}
                 <Button type="button" variant="outline" className="h-12" aria-label="Delete digit" onClick={() => setPin((p) => p.slice(0, -1))}><Delete /></Button>
                 <Button type="button" variant="outline" className="h-12 text-lg" onClick={() => press("0")}>0</Button>
-                <Button type="button" className="h-12" disabled={pin.length < 4 || busy} onClick={() => void submitPin(pin)}>{busy ? <Loader2 className="animate-spin" /> : "Enter"}</Button>
+                <Button type="button" className="h-12" disabled={pin.length < 4 || busy || !terminal} onClick={() => void submitPin(pin)}>{busy ? <Loader2 className="animate-spin" /> : "Enter"}</Button>
               </div>
               {error ? <p className="rounded-md bg-destructive/10 p-2 text-sm text-destructive" role="alert">{error}</p> : null}
               <Button type="button" variant="ghost" className="w-full" onClick={() => { setError(null); setMode("password"); }}>Use password instead</Button>

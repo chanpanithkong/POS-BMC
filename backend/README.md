@@ -66,6 +66,34 @@ notepad .env
 
 Use `app.serve` on Windows rather than plain `uvicorn`: psycopg's async driver needs the selector event loop, which the launcher sets. In Linux or Docker, `uvicorn app.main:app` works as well.
 
+## Try the frontend against the API (demo database)
+
+`scripts.seed_demo` creates a separate `pims_demo` database with clearly labelled sample data: 2 branches, 3 terminals, 5 products, 12 users, one per role. It refuses to touch `DB_NAME` or any database without "demo" in its name. The shared demo password is generated and written to `backend/.demo-credentials`, which is git-ignored. Set `DEMO_PASSWORD` to choose it yourself.
+
+```powershell
+.venv\Scripts\python.exe -m scripts.seed_demo
+$env:DB_NAME="pims_demo"; .venv\Scripts\python.exe -m app.serve
+```
+
+For a shop that looks lived-in, `scripts.seed_demo_store` builds `pims_demo_store` instead. It contains 42 products, 28 customers, 5 suppliers and about 60 days of trading at two branches: sales, voids, returns, weekly purchase orders with deliveries and supplier invoices, transfers, damage write-offs, expenses, promotions, and closed cash sessions. Every record goes through the real API, with a simulated clock stepping through the days, so stock, costing, approvals and numbering behave exactly as in production. Today's tills are left open, with a held sale, a PO awaiting approval and a transfer in transit. It takes about 10 minutes and uses the same demo password.
+
+```powershell
+.venv\Scripts\python.exe -m scripts.seed_demo_store
+$env:DB_NAME="pims_demo_store"; .venv\Scripts\python.exe -m app.serve
+```
+
+In `frontend/.env.local` set `NEXT_PUBLIC_API_MODE=live` and `NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1`, then run `npm run dev`. Low-stock alerts appear after a worker pass (`$env:DB_NAME="pims_demo"; .venv\Scripts\python.exe -m app.workers.run --once`).
+
+## Background worker
+
+Releases expired stock reservations, re-checks stock alerts, sends password-reset emails (when SMTP is set in `.env`), reminds managers about sessions left open, and clears old idempotency keys. Run it next to the API:
+
+```powershell
+.venv\Scripts\python.exe -m app.workers.run
+```
+
+Use `--once` to run a single pass, for example from Windows Task Scheduler.
+
 ## Tests
 
 Tests use only `TEST_DB_NAME` (default `pims_test_db`). The suite refuses to start if that name equals `DB_NAME` or does not contain `test`. Each run rebuilds the test schema from the migrations (downgrade, then upgrade). Your development database is never touched.
@@ -87,6 +115,8 @@ If `DB_PASSWORD` is empty or the test database is unreachable, the database test
 .venv\Scripts\alembic.exe check
 # Regenerate docs/ERD.md from the models
 .venv\Scripts\python.exe -m scripts.erd
+# Run one worker pass
+.venv\Scripts\python.exe -m app.workers.run --once
 # Re-seed reference data (permissions, currencies, location types); safe to repeat
 .venv\Scripts\python.exe -m scripts.seed
 ```
@@ -97,7 +127,7 @@ If `DB_PASSWORD` is empty or the test database is unreachable, the database test
 docker compose --env-file .env up --build
 ```
 
-Compose starts PostgreSQL 16, published on port **5433** so it does not clash with a local server on 5432, and the API on port 8000. Migrations run when the API starts. If `DB_PASSWORD` contains `@`, `:`, `/` or `%`, URL-encode it in the compose `DATABASE_URL`.
+Compose starts PostgreSQL 16, published on port **5433** so it does not clash with a local server on 5432, the API on port 8000, and the background worker. Uploaded files are kept in the `pims_storage` volume. Migrations run when the API starts. If `DB_PASSWORD` contains `@`, `:`, `/` or `%`, URL-encode it in the compose `DATABASE_URL`.
 
 ## Authentication for the frontend
 

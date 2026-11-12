@@ -89,7 +89,7 @@ export interface StockMovement {
   userId: ID;
   userName: string;
   /** Signed effect for the row in the running-balance view, filled by the movement list API. */
-  runningBalance?: number;
+  runningBalance?: number | null;
 }
 
 export interface Batch {
