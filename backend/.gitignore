@@ -1,0 +1,12 @@
+.env
+.venv/
+.venv-broken/
+.venv-python315
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+storage/
+*.log
+.demo-credentials
