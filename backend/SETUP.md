@@ -111,17 +111,18 @@ In a new PowerShell window:
 cd $HOME\Documents\pos\frontend
 npm ci
 Copy-Item .env.example .env.local
-notepad .env.local
 ```
 
-In `.env.local`, set:
+The copied `.env.local` already uses the real API:
 
 ```
 NEXT_PUBLIC_API_MODE=live
 NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
 ```
 
-`mock` mode runs the screens on built-in sample data with no backend at all, which is handy for a quick look.
+Change it only if the API runs on another address (see section 5). Edit it with `notepad .env.local`. Don't create it with `echo ... > .env.local` in Windows PowerShell 5.1: that saves the file as UTF-16, which Next.js cannot read.
+
+The real API is the default even without the file. `NEXT_PUBLIC_API_MODE=mock` switches to the built-in sample data with no backend, for a quick look only. On the sign-in page, mock mode shows a list of demo accounts; the real API does not.
 
 Run it:
 
@@ -200,3 +201,4 @@ npm run lint
 | Port 8000 or 3000 already in use | Another copy is running. Close it, or use `--port 8001` and change `NEXT_PUBLIC_API_URL` to match. |
 | Browser shows a CORS error | `CORS_ORIGINS` in `backend\.env` must exactly match the address in the browser bar, including the port. Restart the API after changing it. |
 | Frontend still calls the old API address | `NEXT_PUBLIC_API_URL` is fixed at build time. Run `npm run build` again. |
+| Frontend shows demo accounts on the sign-in page and doesn't use the API | It is in mock mode. Check that `frontend\.env.local` doesn't say `NEXT_PUBLIC_API_MODE=mock`, then stop and restart `npm run dev`, or run `npm run build` again for `npm run start`. |
