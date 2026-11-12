@@ -643,22 +643,57 @@ async def resolve_payment(db: AsyncSession, actor: Principal, sale_id: uuid.UUID
     return await sale_view(db, actor, sale)
 
 
+# Stock moves for sale lines (batches leave earliest expiry first; expired batches are not sold)
+
+async def sale_line_moves(db: AsyncSession, line: SaleLine, product: Product, location: WarehouseLocation, source_id: str, usable_on, *, source_no: str = "") -> list[stock.Move]:
+    parts = await stock.split_by_batch(db, product.id, location.id, line.quantity_base, usable_on=usable_on)
+    split = len(parts) > 1 or parts[0][0] != ""
+    per_base = line.quantity / line.quantity_base if line.quantity_base else Decimal(1)
+    return [stock.Move(product, qty, "SALE", "SALE", source_id, stock.line_key(line.id, batch, split), from_location=location, unit_id=line.unit_id,
+                       quantity_entered=line.quantity if not split else qty * per_base, batch_no=batch, source_no=source_no) for batch, qty in parts]
+
+
+def apply_line_costs(lines: list[SaleLine], movements: list) -> None:
+    """Line cost is the sum of its movements (one per batch taken)."""
+    totals: dict[str, Decimal] = {}
+    for m in movements:
+        key = m.source_line_id.split(":", 1)[0]
+        totals[key] = totals.get(key, Decimal(0)) + (m.total_cost or Decimal(0))
+    for line in lines:
+        total = totals.get(str(line.id))
+        line.cost_total = total if total is not None else Decimal(0)
+        line.unit_cost = (total / line.quantity_base).quantize(Decimal("0.000001")) if total is not None and line.quantity_base else Decimal(0)
+
+
 # Reservations (BR-INV-009, D-07)
 
+async def _location_rows(db: AsyncSession, location_id: uuid.UUID, product_id: uuid.UUID) -> list[InventoryBalance]:
+    return list(await db.scalars(select(InventoryBalance).where(InventoryBalance.location_id == location_id, InventoryBalance.product_id == product_id)
+                                 .order_by(InventoryBalance.batch_no).with_for_update().execution_options(populate_existing=True)))
+
+
 async def _reserve(db: AsyncSession, actor: Principal, sale: Sale, lines: list[SaleLine]) -> None:
-    targets = [ln for ln in lines if not ln.is_service and ln.location_id]
+    """Holds stock for a pending payment across every batch at the location (BR-INV-009)."""
+    targets = sorted((ln for ln in lines if not ln.is_service and ln.location_id), key=lambda ln: (str(ln.location_id), str(ln.product_id)))
     if not targets:
         return
-    locations = {ln.location_id: await db.get(WarehouseLocation, ln.location_id) for ln in targets}
-    balances = await stock.lock_balances(db, actor.company_id, [(locations[ln.location_id], ln.product_id, "") for ln in targets])
     settings = await _settings(db, actor.company_id)
     expires = _now() + timedelta(minutes=RESERVATION_MINUTES)
     for line in targets:
-        balance = balances[(line.location_id, line.product_id, "")]
-        if balance.on_hand - balance.reserved < line.quantity_base and not settings.get("negative_stock_allowed"):
-            raise stock.InsufficientStock(f"Not enough {line.sku} to hold for this payment: {(balance.on_hand - balance.reserved).normalize()} available.",
-                                          details=[{"product_id": str(line.product_id), "sku": line.sku, "available": str(balance.on_hand - balance.reserved), "requested": str(line.quantity_base)}])
-        balance.reserved += line.quantity_base
+        rows = await _location_rows(db, line.location_id, line.product_id)
+        free = sum((r.on_hand - r.reserved for r in rows), Decimal(0))
+        if free < line.quantity_base and not settings.get("negative_stock_allowed"):
+            raise stock.InsufficientStock(f"Not enough {line.sku} to hold for this payment: {free.normalize()} available.",
+                                          details=[{"product_id": str(line.product_id), "sku": line.sku, "available": str(free), "requested": str(line.quantity_base)}])
+        remaining = line.quantity_base
+        for row in rows:
+            take = min(remaining, max(row.on_hand - row.reserved, Decimal(0)))
+            row.reserved += take
+            remaining -= take
+        if remaining > 0:  # negative stock allowed: hold the rest on the unbatched row
+            location = await db.get(WarehouseLocation, line.location_id)
+            row = (await stock.lock_balances(db, actor.company_id, [(location, line.product_id, "")]))[(line.location_id, line.product_id, "")]
+            row.reserved += remaining
         db.add(StockReservation(company_id=actor.company_id, sale_id=sale.id, sale_line_id=line.id, location_id=line.location_id, product_id=line.product_id,
                                 quantity_base=line.quantity_base, expires_at=expires))
     await db.flush()
@@ -667,9 +702,11 @@ async def _reserve(db: AsyncSession, actor: Principal, sale: Sale, lines: list[S
 async def release_reservations(db: AsyncSession, sale_id: uuid.UUID, status: str = "RELEASED") -> None:
     reservations = list(await db.scalars(select(StockReservation).where(StockReservation.sale_id == sale_id, StockReservation.status == "ACTIVE").with_for_update()))
     for r in sorted(reservations, key=lambda r: (str(r.location_id), str(r.product_id))):
-        balance = await db.scalar(select(InventoryBalance).where(InventoryBalance.location_id == r.location_id, InventoryBalance.product_id == r.product_id, InventoryBalance.batch_no == "").with_for_update())
-        if balance is not None:
-            balance.reserved = max(balance.reserved - r.quantity_base, Decimal(0))
+        remaining = r.quantity_base
+        for row in await _location_rows(db, r.location_id, r.product_id):
+            give = min(remaining, row.reserved)
+            row.reserved -= give
+            remaining -= give
         r.status = status
     await db.flush()
 
@@ -717,6 +754,8 @@ async def finalize(db: AsyncSession, actor: Principal, sale_id: uuid.UUID) -> di
         used.add(uuid.UUID(sale.order_discount["promotion_id"]))
     await promotions.count_usage(db, sale, used)
     await release_reservations(db, sale.id, status="CONSUMED")
+    branch = await db.get(Branch, sale.branch_id)
+    usable_on = stock.business_date(branch)
     moves = []
     for line in lines:
         if line.is_service:
@@ -725,14 +764,8 @@ async def finalize(db: AsyncSession, actor: Principal, sale_id: uuid.UUID) -> di
         location = await db.get(WarehouseLocation, line.location_id) if line.location_id else None
         if location is None:
             raise AppError("This terminal has no sellable location.", code="CONFIGURATION_ERROR", status_code=422)
-        moves.append(stock.Move(product, line.quantity_base, "SALE", "SALE", str(sale.id), str(line.id), from_location=location, unit_id=line.unit_id, quantity_entered=line.quantity))
-    movements = await stock.post(db, actor, moves)
-    by_line = {m.source_line_id: m for m in movements}
-    for line in lines:
-        movement = by_line.get(str(line.id))
-        line.unit_cost = movement.unit_cost if movement else Decimal(0)
-        line.cost_total = movement.total_cost if movement else Decimal(0)
-    branch = await db.get(Branch, sale.branch_id)
+        moves += await sale_line_moves(db, line, product, location, str(sale.id), usable_on)
+    apply_line_costs(lines, await stock.post(db, actor, moves))
     sale.receipt_no = await next_number(db, actor.company_id, "RECEIPT", branch_code=branch.code if branch else None)
     sale.status, sale.finalized_at, sale.session_id, sale.notices = "FINALIZED", _now(), session.id, []
     sale.business_date = stock.business_date(branch)
@@ -800,8 +833,13 @@ async def void(db: AsyncSession, actor: Principal, sale_id: uuid.UUID, data: s.S
             continue
         product = await db.get(Product, line.product_id)
         location = await db.get(WarehouseLocation, line.location_id)
-        moves.append(stock.Move(product, line.quantity_base, "SALE_VOID", "SALE_VOID", str(sale.id), str(line.id), to_location=location, unit_cost=line.unit_cost or Decimal(0),
-                                source_no=sale.receipt_no or "", reason=data.reason, approved_by=approved_by, unit_id=line.unit_id, quantity_entered=line.quantity))
+        taken = await stock.sold_batches(db, actor.company_id, line.id) or [("", line.quantity_base)]
+        split = len(taken) > 1 or taken[0][0] != ""
+        per_base = line.quantity / line.quantity_base if line.quantity_base else Decimal(1)
+        for batch, qty in taken:  # stock goes back into the batches the sale took
+            moves.append(stock.Move(product, qty, "SALE_VOID", "SALE_VOID", str(sale.id), stock.line_key(line.id, batch, split), to_location=location, unit_cost=line.unit_cost or Decimal(0),
+                                    source_no=sale.receipt_no or "", reason=data.reason, approved_by=approved_by, unit_id=line.unit_id,
+                                    quantity_entered=line.quantity if not split else qty * per_base, batch_no=batch))
     await stock.post(db, actor, moves)
     branch = await db.get(Branch, sale.branch_id)
     settings = await _settings(db, actor.company_id)

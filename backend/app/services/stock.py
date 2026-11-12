@@ -324,6 +324,64 @@ async def opening_balance(db: AsyncSession, actor: Principal, *, product_id: uui
     return movement
 
 
+async def split_by_batch(db: AsyncSession, product_id: uuid.UUID, location_id: uuid.UUID, quantity: Decimal, *, usable_on: date | None = None) -> list[tuple[str, Decimal]]:
+    """Splits a quantity leaving a location across the batches held there, earliest expiry first (FEFO).
+
+    With `usable_on`, batches that expired before that day are skipped, so expired stock is never sold.
+    Stock without a batch has batch_no "". Any shortfall is returned as a "" part so the ledger
+    reports it with its usual INSUFFICIENT_STOCK error.
+    """
+    query = (select(InventoryBalance.batch_no, InventoryBalance.on_hand - InventoryBalance.reserved)
+             .outerjoin(InventoryBatch, (InventoryBatch.product_id == InventoryBalance.product_id) & (InventoryBatch.batch_no == InventoryBalance.batch_no)
+                        & (InventoryBatch.company_id == InventoryBalance.company_id))
+             .where(InventoryBalance.location_id == location_id, InventoryBalance.product_id == product_id, InventoryBalance.on_hand > InventoryBalance.reserved)
+             .order_by(InventoryBatch.expiry_date.asc().nulls_last(), InventoryBalance.batch_no))
+    if usable_on is not None:
+        query = query.where((InventoryBatch.expiry_date.is_(None)) | (InventoryBatch.expiry_date >= usable_on))
+    parts: dict[str, Decimal] = {}
+    remaining = quantity
+    for batch_no, free in await db.execute(query):
+        take = min(remaining, free)
+        if take > 0:
+            parts[batch_no] = parts.get(batch_no, Decimal(0)) + take
+            remaining -= take
+        if remaining == 0:
+            break
+    if remaining > 0:
+        parts[""] = parts.get("", Decimal(0)) + remaining
+    return list(parts.items())
+
+
+async def sold_batches(db: AsyncSession, company_id: uuid.UUID, line_id: uuid.UUID) -> list[tuple[str, Decimal]]:
+    """The batches a sale line took stock from, in the order they were taken."""
+    rows = await db.execute(
+        select(InventoryMovement.batch_no, InventoryMovement.quantity_base)
+        .where(InventoryMovement.company_id == company_id, InventoryMovement.movement_type == "SALE",
+               (InventoryMovement.source_line_id == str(line_id)) | InventoryMovement.source_line_id.like(f"{line_id}:%"))
+        .order_by(InventoryMovement.id))
+    return [(batch, qty) for batch, qty in rows]
+
+
+def take_from(parts: list[tuple[str, Decimal]], quantity: Decimal) -> list[tuple[str, Decimal]]:
+    """Allocates a quantity across (batch, quantity) parts in order; any excess goes to the last batch (or "")."""
+    out: dict[str, Decimal] = {}
+    remaining = quantity
+    for batch, available in parts:
+        take = min(remaining, available)
+        if take > 0:
+            out[batch] = out.get(batch, Decimal(0)) + take
+            remaining -= take
+    if remaining > 0:
+        last = parts[-1][0] if parts else ""
+        out[last] = out.get(last, Decimal(0)) + remaining
+    return list(out.items())
+
+
+def line_key(line_id: uuid.UUID | str, batch_no: str, split: bool) -> str:
+    """Ledger source_line_id for a document line; a line taken from several batches gets one row per batch."""
+    return f"{line_id}:{batch_no or '-'}" if split else str(line_id)
+
+
 async def relocate(db: AsyncSession, actor: Principal, *, product_id: uuid.UUID, from_location_id: uuid.UUID, to_location_id: uuid.UUID, quantity: Decimal, reason: str, key: str) -> InventoryMovement:
     product = await stock_product(db, actor, product_id)
     source = await scoped_location(db, actor, from_location_id)
@@ -334,7 +392,9 @@ async def relocate(db: AsyncSession, actor: Principal, *, product_id: uuid.UUID,
         raise ValidationFailed("to_location_id", "Moving stock between warehouses needs a transfer.")
     if "IN_TRANSIT" in (source.location_type, target.location_type):
         raise ValidationFailed("to_location_id", "In-transit stock moves only through transfers.")
-    [movement] = await post(db, actor, [Move(product, quantity, "RELOCATION", "RELOCATION", str(product.id), f"RELOCATION:{key}", from_location=source, to_location=target, reason=reason or None)])
+    moves = [Move(product, part, "RELOCATION", "RELOCATION", str(product.id), f"RELOCATION:{key}:{n}", from_location=source, to_location=target, reason=reason or None, batch_no=batch_no)
+             for n, (batch_no, part) in enumerate(await split_by_batch(db, product.id, source.id, quantity))]
+    movement = (await post(db, actor, moves))[0]
     await record_audit(db, actor, "STOCK_RELOCATED", "INV", "product", product.id, after={"from": source.code, "to": target.code, "quantity": str(quantity), "reason": reason}, branch_id=movement.branch_id)
     await db.commit()
     return movement

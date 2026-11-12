@@ -20,11 +20,20 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 _bearer = HTTPBearer(auto_error=False, description="Access token from POST /auth/login")
 
 
+def _terminal_id(value: str | None) -> uuid.UUID | None:
+    """An unknown or malformed X-Terminal-Id means "not a registered terminal": back-office calls
+    still work, and POS calls get TERMINAL_NOT_REGISTERED instead of a validation error everywhere."""
+    try:
+        return uuid.UUID(value) if value else None
+    except ValueError:
+        return None
+
+
 async def current_principal(
     request: Request,
     db: DbSession,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
-    x_terminal_id: Annotated[uuid.UUID | None, Header()] = None,
+    x_terminal_id: Annotated[str | None, Header()] = None,
 ) -> Principal:
     if credentials is None:
         raise NotAuthenticated("Please sign in to continue.")
@@ -36,7 +45,7 @@ async def current_principal(
     idle = timedelta(minutes=get_settings().session_idle_minutes)
     if session is None or session.revoked_at or session.absolute_expires_at <= now or session.last_seen_at + idle <= now:
         raise NotAuthenticated("Your session has expired. Please sign in again.", code="SESSION_EXPIRED")
-    principal = await load_principal(db, claims.user_id, claims.session_id, terminal_id=x_terminal_id)
+    principal = await load_principal(db, claims.user_id, claims.session_id, terminal_id=_terminal_id(x_terminal_id))
     if principal is None:
         raise NotAuthenticated("Your account is not active.", code="SESSION_EXPIRED")
     if now - session.last_seen_at > timedelta(minutes=1):

@@ -75,6 +75,13 @@ Use `app.serve` on Windows rather than plain `uvicorn`: psycopg's async driver n
 $env:DB_NAME="pims_demo"; .venv\Scripts\python.exe -m app.serve
 ```
 
+For a shop that looks lived-in, `scripts.seed_demo_store` builds `pims_demo_store` instead. It contains 42 products, 28 customers, 5 suppliers and about 60 days of trading at two branches: sales, voids, returns, weekly purchase orders with deliveries and supplier invoices, transfers, damage write-offs, expenses, promotions, and closed cash sessions. Every record goes through the real API, with a simulated clock stepping through the days, so stock, costing, approvals and numbering behave exactly as in production. Today's tills are left open, with a held sale, a PO awaiting approval and a transfer in transit. It takes about 10 minutes and uses the same demo password.
+
+```powershell
+.venv\Scripts\python.exe -m scripts.seed_demo_store
+$env:DB_NAME="pims_demo_store"; .venv\Scripts\python.exe -m app.serve
+```
+
 In `frontend/.env.local` set `NEXT_PUBLIC_API_MODE=live` and `NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1`, then run `npm run dev`. Low-stock alerts appear after a worker pass (`$env:DB_NAME="pims_demo"; .venv\Scripts\python.exe -m app.workers.run --once`).
 
 ## Background worker

@@ -38,7 +38,7 @@ from app.schemas import sales as s
 from app.services import approvals, cash_sessions, customers, pricing, stock
 from app.services.common import next_number, record_audit
 from app.services.principal import Principal
-from app.services.sales import COMPLETED, _approver_name, _lines, _new_line, _payments, _sellable, _settings, cents, recalc_paid, reprice, round_khr
+from app.services.sales import COMPLETED, _approver_name, _lines, _new_line, _payments, _sellable, _settings, apply_line_costs, cents, recalc_paid, reprice, round_khr, sale_line_moves
 
 ELECTRONIC = ("CARD", "QR", "BANK_TRANSFER")
 
@@ -173,9 +173,14 @@ async def create_return(db: AsyncSession, actor: Principal, sale_id: uuid.UUID, 
         line.returned_quantity += item.quantity
         if destination is not None:
             product = await db.get(Product, line.product_id)
-            moves.append(stock.Move(product, rl.quantity_base, "SALE_RETURN", "SALE_RETURN", str(ret.id), str(line.id) + ":" + str(ret.id), to_location=destination,
-                                    unit_cost=line.unit_cost or Decimal(0), source_no=ret.return_no, reason=f"{item.condition}: {item.reason}", approved_by=approved_by,
-                                    unit_id=line.unit_id, quantity_entered=item.quantity))
+            # Returned goods go back into the batches the sale took, so their expiry dates stay known.
+            parts = stock.take_from(await stock.sold_batches(db, actor.company_id, line.id), rl.quantity_base)
+            split = len(parts) > 1 or parts[0][0] != ""
+            for batch, qty in parts:
+                suffix = f":{batch or '-'}" if split else ""
+                moves.append(stock.Move(product, qty, "SALE_RETURN", "SALE_RETURN", str(ret.id), f"{line.id}:{ret.id}{suffix}", to_location=destination,
+                                        unit_cost=line.unit_cost or Decimal(0), source_no=ret.return_no, reason=f"{item.condition}: {item.reason}", approved_by=approved_by,
+                                        unit_id=line.unit_id, quantity_entered=item.quantity if not split else qty / line.factor, batch_no=batch))
     await db.flush()
     await stock.post(db, actor, moves)
 
@@ -287,16 +292,14 @@ async def _exchange_sale(db: AsyncSession, actor: Principal, original: Sale, ret
     except IntegrityError as exc:
         raise Conflict("This payment reference has already been used.", code="DUPLICATE_PAYMENT_REFERENCE") from exc
     moves = []
+    usable_on = stock.business_date(branch)
     for line in lines:
         if line.is_service:
             continue
         product = await db.get(Product, line.product_id)
         location = await db.get(WarehouseLocation, line.location_id)
-        moves.append(stock.Move(product, line.quantity_base, "SALE", "SALE", str(new.id), str(line.id), from_location=location, unit_id=line.unit_id, quantity_entered=line.quantity, source_no=ret.return_no))
-    movements = {m.source_line_id: m for m in await stock.post(db, actor, moves)}
-    for line in lines:
-        m = movements.get(str(line.id))
-        line.unit_cost, line.cost_total = (m.unit_cost, m.total_cost) if m else (Decimal(0), Decimal(0))
+        moves += await sale_line_moves(db, line, product, location, str(new.id), usable_on, source_no=ret.return_no)
+    apply_line_costs(lines, await stock.post(db, actor, moves))
     new.receipt_no = await next_number(db, actor.company_id, "RECEIPT", branch_code=branch.code if branch else None)
     new.status, new.finalized_at, new.business_date = "FINALIZED", _now(), today
     await recalc_paid(db, new)
