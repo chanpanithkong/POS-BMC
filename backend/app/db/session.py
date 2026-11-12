@@ -17,7 +17,8 @@ _sessionmaker: async_sessionmaker[AsyncSession] | None = None
 
 def configure_engine(url: str | None = None) -> AsyncEngine:
     global _engine, _sessionmaker
-    _engine = create_async_engine(url or get_settings().database_url, pool_pre_ping=True, pool_size=10, max_overflow=10)
+    # Sessions run in UTC so timestamps read back are UTC regardless of the server's TimeZone setting.
+    _engine = create_async_engine(url or get_settings().database_url, pool_pre_ping=True, pool_size=10, max_overflow=10, connect_args={"options": "-c timezone=UTC"})
     _sessionmaker = async_sessionmaker(_engine, expire_on_commit=False)
     return _engine
 

@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     refresh_cookie_name: str = "pims_refresh"
     refresh_cookie_secure: bool = False
 
+    # Uploaded files (product images). Kept outside git; mount a volume in Docker.
+    storage_dir: Path = BACKEND_DIR / "storage"
+
     login_lock_attempts: int = 5
     login_lock_window_minutes: int = 15
 

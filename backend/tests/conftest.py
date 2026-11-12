@@ -72,6 +72,12 @@ def alembic_config(url: str) -> Config:
     return cfg
 
 
+@pytest.fixture(scope="session", autouse=True)
+def isolated_storage(tmp_path_factory: pytest.TempPathFactory) -> None:
+    """Uploaded files from tests go to a temporary folder, never backend/storage."""
+    get_settings().storage_dir = tmp_path_factory.mktemp("storage")
+
+
 @pytest.fixture(scope="session")
 def test_db_url() -> str:
     return _test_url()
@@ -133,7 +139,7 @@ class World:
         suffix = secrets.token_hex(4)
         password = new_password()
         user = User(
-            company_id=self.company.id, username=f"u{suffix}", email=f"u{suffix}@example.test", full_name=f"Test {' '.join(role_codes)} {suffix}",
+            company_id=self.company.id, username=f"u{suffix}", email=f"u{suffix}@example.com", full_name=f"Test {' '.join(role_codes)} {suffix}",
             password_hash=hash_secret(password),
             pin_hash=hash_secret(pin) if pin else None, pin_lookup=pin_lookup(self.company.id, pin) if pin else None,
         )

@@ -2,20 +2,20 @@
 
 Maps SRS PIMS-SRS-001 requirement IDs to backend code and tests. Status is Planned, Partial or Done; Done means implemented and covered by a passing test listed in the Tests column.
 
-0 of 293 functional requirements done.
+47 of 293 functional requirements done, 11 partial (after Phases 1 to 3; 99 tests passing).
 
 ## Cross-cutting requirements
 
 | ID | Backend | Tests | Status |
 |---|---|---|---|
-| NFR-SEC-005 | core/exceptions.py, schemas (extra=forbid) |  | Planned |
-| NFR-MNT-002 | main.py OpenAPI, /docs, /redoc |  | Planned |
-| NFR-MNT-004 | alembic/ |  | Planned |
-| NFR-MNT-005 | middleware/correlation.py, core/logging.py |  | Planned |
-| NFR-MNT-006 | core/config.py |  | Planned |
+| NFR-SEC-005 | core/exceptions.py, schemas (extra=forbid) | tests/api/test_platform.py::test_unknown_fields_are_rejected | Done |
+| NFR-MNT-002 | main.py OpenAPI, /docs, /redoc | tests/api/test_platform.py::test_docs_and_schema_are_served | Done |
+| NFR-MNT-004 | alembic/ | tests/integration/test_database.py::test_schema_matches_models (+ downgrade/upgrade each run) | Done |
+| NFR-MNT-005 | middleware/correlation.py, core/logging.py | tests/api/test_platform.py::test_correlation_id_* | Done |
+| NFR-MNT-006 | core/config.py | tests/unit/test_core.py::test_short_secret_key_rejected, test_database_password_is_url_encoded_and_secret | Done |
 | NFR-INT-010 | models (NUMERIC only) |  | Planned |
-| NFR-SEC-011 | models/audit_log.py, migration trigger |  | Planned |
-| NFR-SEC-014 | .env, core/config.py |  | Planned |
+| NFR-SEC-011 | models/audit_log.py, migration trigger | tests/integration/test_database.py::test_audit_log_is_append_only, test_audit_chain_* | Done |
+| NFR-SEC-014 | .env, core/config.py | tests/unit/test_core.py::test_database_password_is_url_encoded_and_secret | Done |
 | BR-SEC-001 | core/permissions.py |  | Planned |
 | BR-SEC-002 | services/approvals |  | Planned |
 | BR-AUD-001 | services/audit |  | Planned |
@@ -26,72 +26,72 @@ Maps SRS PIMS-SRS-001 requirement IDs to backend code and tests. Status is Plann
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-AUTH-001 | Login and logout | Must | BR-SEC-001 | services/auth, services/users |  | Planned |
-| FR-AUTH-002 | Terminal PIN login | Must | BR-SEC-002 | services/auth, services/users |  | Planned |
-| FR-AUTH-003 | User creation and modification | Must | BR-SEC-001 | services/auth, services/users |  | Planned |
-| FR-AUTH-004 | Password management and reset | Must | — | services/auth, services/users |  | Planned |
-| FR-AUTH-005 | Activation and deactivation | Must | BR-AUD-001 | services/auth, services/users |  | Planned |
-| FR-AUTH-006 | Role and permission management | Must | BR-SEC-002 | services/auth, services/users |  | Planned |
-| FR-AUTH-007 | Session management | Must | — | services/auth, services/users |  | Planned |
-| FR-AUTH-008 | Failed-login protection | Must | — | services/auth, services/users |  | Planned |
-| FR-AUTH-009 | Server-side authorisation | Must | BR-SEC-001, BR-SEC-003 | services/auth, services/users |  | Planned |
+| FR-AUTH-001 | Login and logout | Must | BR-SEC-001 | services/auth, services/users | tests/api/test_auth.py::test_login_*, test_logout_revokes_access_and_refresh | Done |
+| FR-AUTH-002 | Terminal PIN login | Must | BR-SEC-002 | services/auth, services/users | tests/api/test_auth.py::test_pin_login_* | Done |
+| FR-AUTH-003 | User creation and modification | Must | BR-SEC-001 | services/auth, services/users | tests/api/test_access_control.py::test_admin_creates_user_with_scope | Done |
+| FR-AUTH-004 | Password management and reset | Must | — | services/auth, services/users | tests/api/test_auth.py::test_change_password_*, test_forgot_and_reset_password (email delivery: Phase 8 worker) | Partial |
+| FR-AUTH-005 | Activation and deactivation | Must | BR-AUD-001 | services/auth, services/users | tests/api/test_auth.py::test_inactive_user_cannot_sign_in | Done |
+| FR-AUTH-006 | Role and permission management | Must | BR-SEC-002 | services/auth, services/users | tests/api/test_access_control.py::test_role_with_sod_conflict_is_flagged, test_cannot_change_own_permissions | Done |
+| FR-AUTH-007 | Session management | Must | — | services/auth, services/users | tests/api/test_auth.py::test_refresh_rotates_and_reuse_ends_the_session, test_change_password_signs_out_other_sessions | Done |
+| FR-AUTH-008 | Failed-login protection | Must | — | services/auth, services/users | tests/api/test_auth.py::test_five_failures_lock_the_account, test_admin_unlock_restores_sign_in | Done |
+| FR-AUTH-009 | Server-side authorisation | Must | BR-SEC-001, BR-SEC-003 | services/auth, services/users | tests/api/test_access_control.py::test_missing_permission_is_403 | Done |
 | FR-AUTH-010 | Optional MFA | Should | — | services/auth, services/users |  | Planned |
-| FR-AUTH-011 | User activity logs | Must | BR-AUD-001 | services/auth, services/users |  | Planned |
-| FR-AUTH-012 | Branch access restrictions | Must | BR-SEC-001 | services/auth, services/users |  | Planned |
-| FR-AUTH-013 | Employee profiles | Should | — | services/auth, services/users |  | Planned |
+| FR-AUTH-011 | User activity logs | Must | BR-AUD-001 | services/auth, services/users | tests/integration/test_database.py::test_audit_chain_verifies | Done |
+| FR-AUTH-012 | Branch access restrictions | Must | BR-SEC-001 | services/auth, services/users | tests/api/test_access_control.py::test_other_company_records_are_404, api/test_auth.py::test_pin_login_refused_outside_assigned_branch (branch filters on business data arrive with Phase 3+) | Partial |
+| FR-AUTH-013 | Employee profiles | Should | — | services/auth, services/users | tests/api/test_access_control.py::test_employee_profiles | Done |
 
 ### ORG (phase 3)
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-ORG-001 | Company profile | Must | — | services/organization |  | Planned |
-| FR-ORG-002 | Branch management | Must | — | services/organization |  | Planned |
-| FR-ORG-003 | Warehouse management | Must | — | services/organization |  | Planned |
-| FR-ORG-004 | Stock locations | Must | BR-RET-003 | services/organization |  | Planned |
-| FR-ORG-005 | POS terminal registration | Must | BR-CSH-003 | services/organization |  | Planned |
-| FR-ORG-006 | Cashier-terminal assignment | Should | BR-SEC-001 | services/organization |  | Planned |
-| FR-ORG-007 | Business hours and business date | Should | BR-SAL-008 | services/organization |  | Planned |
-| FR-ORG-008 | Fiscal year and reporting periods | Should | — | services/organization |  | Planned |
-| FR-ORG-009 | Currency settings | Must | BR-PAY-006 | services/organization |  | Planned |
-| FR-ORG-010 | Receipt numbering | Must | BR-DOC-001 | services/organization |  | Planned |
-| FR-ORG-011 | Product numbering | Should | BR-PRD-002 | services/organization |  | Planned |
-| FR-ORG-012 | Branch-specific pricing switch | Should | BR-PRC-001 | services/organization |  | Planned |
+| FR-ORG-001 | Company profile | Must | — | services/organization | tests/api/test_org.py::test_company_profile | Done |
+| FR-ORG-002 | Branch management | Must | — | services/organization | tests/api/test_org.py::test_branch_creates_store_warehouse_and_locations | Done |
+| FR-ORG-003 | Warehouse management | Must | — | services/organization | tests/api/test_org.py::test_branch_creates_store_warehouse_and_locations | Done |
+| FR-ORG-004 | Stock locations | Must | BR-RET-003 | services/organization | tests/api/test_org.py::test_location_rules | Done |
+| FR-ORG-005 | POS terminal registration | Must | BR-CSH-003 | services/organization | tests/api/test_org.py::test_terminal_needs_sellable_location_in_its_branch | Done |
+| FR-ORG-006 | Cashier-terminal assignment | Should | BR-SEC-001 | services/organization | tests/api/test_org.py::test_terminal_needs_sellable_location_in_its_branch, tests/api/test_auth.py::test_pin_login_* | Done |
+| FR-ORG-007 | Business hours and business date | Should | BR-SAL-008 | services/organization | tests/api/test_org.py (hours and day cut-off stored; business date applied to sales in Phase 5) | Partial |
+| FR-ORG-008 | Fiscal year and reporting periods | Should | — | services/organization | tests/api/test_org.py::test_company_profile (fiscal start month stored; reporting periods in Phase 7) | Partial |
+| FR-ORG-009 | Currency settings | Must | BR-PAY-006 | services/organization | tests/api/test_org.py::test_exchange_rates_append_only, test_settings_defaults_validation_and_flagging | Done |
+| FR-ORG-010 | Receipt numbering | Must | BR-DOC-001 | services/organization | tests/api/test_org.py::test_sequences_only_move_forward, test_document_numbers_are_scoped_and_never_reused | Done |
+| FR-ORG-011 | Product numbering | Should | BR-PRD-002 | services/organization | tests/api/test_catalog.py::test_create_with_auto_sku_price_conversion_and_barcode | Done |
+| FR-ORG-012 | Branch-specific pricing switch | Should | BR-PRC-001 | services/organization | tests/api/test_catalog.py::test_resolution_order_and_unit_fallback | Done |
 
 ### PRD (phase 3)
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-PRD-001 | Product creation | Must | BR-PRD-002 | services/products |  | Planned |
-| FR-PRD-002 | SKU and product code | Must | BR-PRD-002 | services/products |  | Planned |
-| FR-PRD-003 | Barcodes | Must | BR-PRD-003 | services/products |  | Planned |
-| FR-PRD-004 | Units on product | Must | BR-PRD-001 | services/products |  | Planned |
-| FR-PRD-005 | Prices on product | Must | BR-PRC-001 | services/products |  | Planned |
-| FR-PRD-006 | Purchase cost reference | Must | BR-CST-001, BR-SEC-003 | services/products |  | Planned |
-| FR-PRD-007 | Tax configuration | Must | — | services/products |  | Planned |
-| FR-PRD-008 | Supplier association | Should | — | services/products |  | Planned |
-| FR-PRD-009 | Stock parameters | Must | — | services/products |  | Planned |
-| FR-PRD-010 | Product status | Must | — | services/products |  | Planned |
-| FR-PRD-011 | Variants | Must | BR-PRD-002 | services/products |  | Planned |
-| FR-PRD-012 | Weight and volume products | Must | BR-PRD-001 | services/products |  | Planned |
-| FR-PRD-013 | Non-stock services | Must | — | services/products |  | Planned |
-| FR-PRD-014 | Expiry and batch tracking | Should | BR-INV-007 | services/products |  | Planned |
+| FR-PRD-001 | Product creation | Must | BR-PRD-002 | services/products | tests/api/test_catalog.py::test_create_with_auto_sku_price_conversion_and_barcode, test_frontend_payload_shape_is_accepted | Done |
+| FR-PRD-002 | SKU and product code | Must | BR-PRD-002 | services/products | tests/api/test_catalog.py::test_create_with_auto_sku_price_conversion_and_barcode | Done |
+| FR-PRD-003 | Barcodes | Must | BR-PRD-003 | services/products | tests/api/test_catalog.py::test_barcode_rules, test_generated_barcodes_are_valid_and_distinct | Done |
+| FR-PRD-004 | Units on product | Must | BR-PRD-001 | services/products | tests/api/test_catalog.py::test_resolution_order_and_unit_fallback, test_base_unit_locked_after_movements | Done |
+| FR-PRD-005 | Prices on product | Must | BR-PRC-001 | services/products | tests/api/test_catalog.py::test_create_with_auto_sku_price_conversion_and_barcode | Done |
+| FR-PRD-006 | Purchase cost reference | Must | BR-CST-001, BR-SEC-003 | services/products | tests/api/test_catalog.py::test_costs_hidden_without_permission (cost values are maintained by inventory in Phase 4) | Partial |
+| FR-PRD-007 | Tax configuration | Must | — | services/products | tests/api/test_org.py::test_tax_code_rate_change_is_flagged (category default tax applied to products) | Done |
+| FR-PRD-008 | Supplier association | Should | — | services/products | Supplier links arrive with purchasing (Phase 6); non-empty links are rejected until then | Planned |
+| FR-PRD-009 | Stock parameters | Must | — | services/products | tests/api/test_catalog.py::test_frontend_payload_shape_is_accepted | Done |
+| FR-PRD-010 | Product status | Must | — | services/products | tests/api/test_catalog.py::test_status_transitions, test_activation_needs_a_retail_price | Done |
+| FR-PRD-011 | Variants | Must | BR-PRD-002 | services/products | tests/api/test_catalog.py::test_variants_are_created_as_children | Done |
+| FR-PRD-012 | Weight and volume products | Must | BR-PRD-001 | services/products | tests/api/test_catalog.py::test_weighed_products_are_fractional | Done |
+| FR-PRD-013 | Non-stock services | Must | — | services/products | tests/api/test_catalog.py (SERVICE type accepted; stock exclusion enforced by inventory in Phase 4) | Partial |
+| FR-PRD-014 | Expiry and batch tracking | Should | BR-INV-007 | services/products | tests/api/test_catalog.py (track_expiry flag stored; batches in Phase 4) | Partial |
 | FR-PRD-015 | Serial-number tracking | Could | BR-PRD-004 | services/products |  | Planned |
 | FR-PRD-016 | Bundles and kits | Could | — | services/products |  | Planned |
-| FR-PRD-017 | Product search and filters | Must | — | services/products |  | Planned |
-| FR-PRD-018 | Change history | Must | BR-AUD-001 | services/products |  | Planned |
+| FR-PRD-017 | Product search and filters | Must | — | services/products | tests/api/test_catalog.py::test_search_by_name_sku_and_barcode | Done |
+| FR-PRD-018 | Change history | Must | BR-AUD-001 | services/products | tests/api/test_catalog.py::test_delete_draft_and_history | Done |
 
 ### CAT (phase 3)
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-CAT-001 | Category management | Must | — | services/catalog |  | Planned |
-| FR-CAT-002 | Category settings | Should | BR-INV-006, BR-RET-004 | services/catalog |  | Planned |
-| FR-CAT-003 | Brand management | Must | — | services/catalog |  | Planned |
-| FR-CAT-004 | Unit-of-measure management | Must | BR-PRD-001 | services/catalog |  | Planned |
-| FR-CAT-005 | Unit conversions | Must | BR-PRD-001 | services/catalog |  | Planned |
-| FR-CAT-006 | Base-quantity calculation | Must | BR-PRD-001 | services/catalog |  | Planned |
+| FR-CAT-001 | Category management | Must | — | services/catalog | tests/api/test_catalog.py::test_category_depth_and_cycles, test_in_use_master_data_cannot_be_deleted | Done |
+| FR-CAT-002 | Category settings | Should | BR-INV-006, BR-RET-004 | services/catalog | tests/api/test_catalog.py::test_category_negative_stock_needs_company_setting (return rules applied in Phase 5) | Partial |
+| FR-CAT-003 | Brand management | Must | — | services/catalog | tests/api/test_catalog.py::test_cashier_cannot_manage_catalogue | Done |
+| FR-CAT-004 | Unit-of-measure management | Must | BR-PRD-001 | services/catalog | tests/api/test_catalog.py::test_in_use_master_data_cannot_be_deleted | Done |
+| FR-CAT-005 | Unit conversions | Must | BR-PRD-001 | services/catalog | tests/api/test_catalog.py::test_resolution_order_and_unit_fallback | Done |
+| FR-CAT-006 | Base-quantity calculation | Must | BR-PRD-001 | services/catalog | tests/api/test_catalog.py::test_resolution_order_and_unit_fallback (factor used for prices; stock quantities in Phase 4) | Partial |
 | FR-CAT-007 | Category-level reporting | Must | BR-RPT-001 | services/catalog |  | Planned |
-| FR-CAT-008 | Product filtering | Must | — | services/catalog |  | Planned |
+| FR-CAT-008 | Product filtering | Must | — | services/catalog | tests/api/test_catalog.py::test_search_by_name_sku_and_barcode | Done |
 
 ### POS (phase 5)
 
@@ -333,18 +333,18 @@ Maps SRS PIMS-SRS-001 requirement IDs to backend code and tests. Status is Plann
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-PRC-001 | Standard and retail price | Must | BR-PRC-001 | services/pricing |  | Planned |
-| FR-PRC-002 | Wholesale price | Should | — | services/pricing |  | Planned |
-| FR-PRC-003 | Branch-specific price | Should | BR-PRC-002 | services/pricing |  | Planned |
-| FR-PRC-004 | Customer-group price | Should | BR-PRC-002 | services/pricing |  | Planned |
+| FR-PRC-001 | Standard and retail price | Must | BR-PRC-001 | services/pricing | tests/api/test_catalog.py::test_new_price_closes_the_old_one_and_is_recorded | Done |
+| FR-PRC-002 | Wholesale price | Should | — | services/pricing | tests/api/test_catalog.py::test_create_with_auto_sku_price_conversion_and_barcode | Done |
+| FR-PRC-003 | Branch-specific price | Should | BR-PRC-002 | services/pricing | tests/api/test_catalog.py::test_resolution_order_and_unit_fallback | Done |
+| FR-PRC-004 | Customer-group price | Should | BR-PRC-002 | services/pricing | Customer groups arrive in Phase 6; resolution order already reserves the slot | Planned |
 | FR-PRC-005 | Promotion price | Could | BR-PRC-002 | services/pricing |  | Planned |
-| FR-PRC-006 | Effective dates | Must | BR-PRC-001 | services/pricing |  | Planned |
-| FR-PRC-007 | Price change history | Must | BR-AUD-001 | services/pricing |  | Planned |
-| FR-PRC-008 | Bulk price updates | Should | — | services/pricing |  | Planned |
+| FR-PRC-006 | Effective dates | Must | BR-PRC-001 | services/pricing | tests/api/test_catalog.py::test_scheduled_price_can_be_removed_and_reopens_previous, test_prices_cannot_be_backdated_or_below_minimum, test_database_rejects_overlapping_prices | Done |
+| FR-PRC-007 | Price change history | Must | BR-AUD-001 | services/pricing | tests/api/test_catalog.py::test_new_price_closes_the_old_one_and_is_recorded | Done |
+| FR-PRC-008 | Bulk price updates | Should | — | services/pricing | tests/api/test_catalog.py::test_bulk_price_change | Done |
 | FR-PRC-009 | Price import | Should | BR-IMP-001 | services/pricing |  | Planned |
-| FR-PRC-010 | Minimum margin warnings | Should | BR-POS-004 | services/pricing |  | Planned |
+| FR-PRC-010 | Minimum margin warnings | Should | BR-POS-004 | services/pricing | tests/api/test_catalog.py::test_bulk_price_change (minimum price enforced; category margin warnings with costs in Phase 4) | Partial |
 | FR-PRC-011 | Price override permissions | Must | BR-POS-004 | services/pricing |  | Planned |
-| FR-PRC-012 | Price resolution service | Must | BR-PRC-002 | services/pricing |  | Planned |
+| FR-PRC-012 | Price resolution service | Must | BR-PRC-002 | services/pricing | tests/api/test_catalog.py::test_resolution_order_and_unit_fallback, test_scan_refuses_unsellable_products | Done |
 
 ### ALR (phase 4)
 
@@ -406,12 +406,12 @@ Maps SRS PIMS-SRS-001 requirement IDs to backend code and tests. Status is Plann
 
 | ID | Requirement | Priority | Business rules | Backend | Tests | Status |
 |---|---|---|---|---|---|---|
-| FR-BRN-001 | Centralized catalogue | Must | — | core/permissions (scope) |  | Planned |
+| FR-BRN-001 | Centralized catalogue | Must | — | core/permissions (scope) | tests/api/test_catalog.py::test_scan_refuses_unsellable_products (one catalogue, per-branch activation) | Done |
 | FR-BRN-002 | Branch-specific stock | Must | — | core/permissions (scope) |  | Planned |
-| FR-BRN-003 | Branch-specific pricing | Should | BR-PRC-002 | core/permissions (scope) |  | Planned |
-| FR-BRN-004 | Branch-specific terminals | Must | — | core/permissions (scope) |  | Planned |
+| FR-BRN-003 | Branch-specific pricing | Should | BR-PRC-002 | core/permissions (scope) | tests/api/test_catalog.py::test_resolution_order_and_unit_fallback | Done |
+| FR-BRN-004 | Branch-specific terminals | Must | — | core/permissions (scope) | tests/api/test_org.py::test_terminal_needs_sellable_location_in_its_branch, test_branch_scope_filters_lookups | Done |
 | FR-BRN-005 | Inter-branch transfers | Must | BR-TRF-001 | core/permissions (scope) |  | Planned |
-| FR-BRN-006 | Branch-level users and permissions | Must | BR-SEC-001 | core/permissions (scope) |  | Planned |
+| FR-BRN-006 | Branch-level users and permissions | Must | BR-SEC-001 | core/permissions (scope) | tests/api/test_org.py::test_branch_scope_filters_lookups, tests/api/test_access_control.py | Partial |
 | FR-BRN-007 | Branch-level reports | Must | — | core/permissions (scope) |  | Planned |
 | FR-BRN-008 | Consolidated reporting | Should | — | core/permissions (scope) |  | Planned |
 | FR-BRN-009 | Shared suppliers and customers | Should | — | core/permissions (scope) |  | Planned |

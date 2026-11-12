@@ -24,7 +24,7 @@ from app.schemas.auth import (
     SessionUser,
     UpdateMeRequest,
 )
-from app.schemas.common import error_responses
+from app.schemas.common import ListResponse, error_responses
 from app.services import approvals, audit
 from app.services import auth as service
 from app.services.auth import IssuedSession
@@ -36,7 +36,7 @@ COOKIE_PATH = "/api/v1/auth"
 def _set_refresh_cookie(response: Response, issued: IssuedSession) -> None:
     settings = get_settings()
     response.set_cookie(
-        settings.refresh_cookie_name, issued.refresh_token, expires=issued.refresh_expires_at, path=COOKIE_PATH,
+        settings.refresh_cookie_name, issued.refresh_token, expires=issued.refresh_expires_at.astimezone(UTC), path=COOKIE_PATH,
         httponly=True, secure=settings.refresh_cookie_secure, samesite="lax",
     )
 
@@ -58,6 +58,7 @@ async def login(body: LoginRequest, request: Request, response: Response, db: Db
     return issued.body
 
 
+@router.post("/pin", response_model=AuthResponse, include_in_schema=False)
 @router.post("/pin-login", response_model=AuthResponse, summary="Cashier PIN sign-in on a registered terminal", responses=error_responses(401, 422, 429))
 async def pin_login(body: PinLoginRequest, request: Request, response: Response, db: DbSession) -> dict:
     issued = await service.pin_login(db, pin=body.pin, terminal_id=body.terminal_id, ip=client_ip(request))
@@ -141,11 +142,12 @@ async def _session_rows(db: DbSession, principal: CurrentPrincipal, all_users: b
     return [{**{c: getattr(s, c) for c in ("id", "user_id", "device", "ip_address", "created_at", "last_seen_at", "expires_at")}, "user_name": name, "current": s.id == principal.session_id} for s, name in rows]
 
 
-@router.get("/sessions", response_model=list[SessionOut], summary="Active sessions; administrators see every user's", responses=error_responses(401))
-async def list_sessions(principal: CurrentPrincipal, db: DbSession, all_users: bool = False) -> list[dict]:
+@router.get("/sessions", response_model=ListResponse[SessionOut], summary="Active sessions; administrators see every user's", responses=error_responses(401))
+async def list_sessions(principal: CurrentPrincipal, db: DbSession, all_users: bool = False) -> dict:
     if all_users:
         principal.require("users.user.manage")
-    return await _session_rows(db, principal, all_users)
+    rows = await _session_rows(db, principal, all_users)
+    return {"items": rows, "total": len(rows)}
 
 
 @router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Revoke a session", responses=error_responses(401, 403, 404))
@@ -162,3 +164,7 @@ async def revoke_session(session_id: uuid.UUID, principal: CurrentPrincipal, db:
         await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
+
+
+approvals_router = APIRouter(tags=["Authentication"])
+approvals_router.add_api_route("/approvals/verify", verify_approval, methods=["POST"], response_model=ApprovalGrant, include_in_schema=False)

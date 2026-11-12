@@ -13,6 +13,7 @@ import sys
 
 from sqlalchemy import func, select
 
+from app.core.runtime import use_selector_loop
 from app.core.security import hash_secret, password_problems
 from app.db.session import dispose_engine, session_factory
 from app.models import Role, User, UserRole
@@ -73,4 +74,5 @@ async def main() -> int:
 
 
 if __name__ == "__main__":
+    use_selector_loop()
     sys.exit(asyncio.run(main()))

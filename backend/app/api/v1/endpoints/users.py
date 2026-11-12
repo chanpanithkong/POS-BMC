@@ -92,9 +92,10 @@ async def set_pin(user_id: uuid.UUID, body: PinUpdate, actor: CurrentPrincipal, 
 
 # Roles and permissions
 
-@router.get("/roles", response_model=list[RoleOut], tags=["Roles"], summary="List roles with permissions, limits and SoD conflicts", responses=ERR)
-async def list_roles(actor: RoleViewer, db: DbSession) -> list[dict]:
-    return await service.list_roles(db, actor)
+@router.get("/roles", response_model=ListResponse[RoleOut], tags=["Roles"], summary="List roles with permissions, limits and SoD conflicts", responses=ERR)
+async def list_roles(actor: RoleViewer, db: DbSession) -> dict:
+    rows = await service.list_roles(db, actor)
+    return {"items": rows, "total": len(rows)}
 
 
 @router.post("/roles", response_model=RoleOut, status_code=status.HTTP_201_CREATED, tags=["Roles"], summary="Create a custom role", responses=ERR)
@@ -119,16 +120,18 @@ async def delete_role(role_id: uuid.UUID, actor: RoleAdmin, db: DbSession) -> Re
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.get("/permissions", response_model=list[PermissionOut], tags=["Roles"], summary="Permission catalogue", responses=ERR)
-async def list_permissions(_: RoleViewer) -> list[dict]:
-    return [{"code": code, "module": code.split(".")[0], "description": text} for code, text in PERMISSIONS.items()]
+@router.get("/permissions", response_model=ListResponse[PermissionOut], tags=["Roles"], summary="Permission catalogue", responses=ERR)
+async def list_permissions(_: RoleViewer) -> dict:
+    rows = [{"code": code, "module": code.split(".")[0], "description": text} for code, text in PERMISSIONS.items()]
+    return {"items": rows, "total": len(rows)}
 
 
 # Employees
 
-@router.get("/employees", response_model=list[EmployeeOut], tags=["Users"], summary="List employees", responses=ERR)
-async def list_employees(actor: UserViewer, db: DbSession) -> list:
-    return await service.list_employees(db, actor)
+@router.get("/employees", response_model=ListResponse[EmployeeOut], tags=["Users"], summary="List employees", responses=ERR)
+async def list_employees(actor: UserViewer, db: DbSession) -> dict:
+    rows = await service.list_employees(db, actor)
+    return {"items": rows, "total": len(rows)}
 
 
 @router.post("/employees", response_model=EmployeeOut, status_code=status.HTTP_201_CREATED, tags=["Users"], summary="Create an employee", responses=ERR)

@@ -148,7 +148,7 @@ async def test_change_password_enforces_policy(client: httpx.AsyncClient, world:
 async def test_forgot_and_reset_password(client: httpx.AsyncClient, world: World):
     account = await world.user("READONLY")
     known = await client.post("/api/v1/auth/forgot-password", json={"email": account.user.email})
-    unknown = await client.post("/api/v1/auth/forgot-password", json={"email": "nobody@example.test"})
+    unknown = await client.post("/api/v1/auth/forgot-password", json={"email": "nobody@example.com"})
     assert known.json() == unknown.json()
     event = await world.db.scalar(
         select(OutboxEvent).where(OutboxEvent.event_type == "PASSWORD_RESET_REQUESTED", OutboxEvent.payload["user_id"].astext == str(account.user.id))

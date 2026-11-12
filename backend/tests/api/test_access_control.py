@@ -39,7 +39,7 @@ async def test_other_company_records_are_404(client: httpx.AsyncClient, world: W
 async def test_admin_creates_user_with_scope(client: httpx.AsyncClient, world: World, login: LoginFn):
     headers = await login(await world.user("SYSADMIN"))
     body = {
-        "username": "new.cashier." + world.company.id.hex[:6], "email": f"nc{world.company.id.hex[:6]}@example.test", "full_name": "New Cashier",
+        "username": "new.cashier." + world.company.id.hex[:6], "email": f"nc{world.company.id.hex[:6]}@example.com", "full_name": "New Cashier",
         "password": new_password(), "role_ids": [str(world.roles["CASHIER"].id)], "branch_ids": [str(world.branch_a.id)],
     }
     created = await client.post("/api/v1/users", headers=headers, json=body)
@@ -115,3 +115,15 @@ async def test_approval_token_is_single_use_and_bound(world: World, db):
         await approvals.consume(db, principal, token=grant["token"], action="DISCOUNT", amount=Decimal("10"), message="m")
     with pytest.raises(approvals.ApprovalRequired):
         await approvals.consume(db, principal, token=None, action="DISCOUNT", message="Manager approval needed")
+
+
+async def test_employee_profiles(client: httpx.AsyncClient, world: World, login: LoginFn):
+    headers = await login(await world.user("SYSADMIN"))
+    created = await client.post("/api/v1/employees", headers=headers, json={"code": "E001", "name_en": "Sok Dara", "name_km": "សុខ ដារា", "branch_id": str(world.branch_a.id)})
+    assert created.status_code == 201 and created.json()["name_km"] == "សុខ ដារា"
+    assert (await client.post("/api/v1/employees", headers=headers, json={"code": "E001", "name_en": "Dup"})).status_code == 409
+    employee_id = created.json()["id"]
+    assert (await client.patch(f"/api/v1/employees/{employee_id}", headers=headers, json={"position": "Cashier"})).json()["position"] == "Cashier"
+    assert (await client.delete(f"/api/v1/employees/{employee_id}", headers=headers)).status_code == 204
+    cashier_headers = await login(await world.user("CASHIER"))
+    assert (await client.post("/api/v1/employees", headers=cashier_headers, json={"code": "E002", "name_en": "X"})).status_code == 403

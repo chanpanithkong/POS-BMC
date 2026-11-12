@@ -14,75 +14,79 @@ Conventions for every endpoint (SRS 13.1):
 
 | Method | Path | Purpose | Permission | Phase | Status |
 |---|---|---|---|---|---|
-| GET | /health | Liveness and database check | Public | 1 | |
+| GET | /health | Liveness and database check | Public | 1 | Done, tested |
 
 ## Authentication and users (AUTH)
 
 | Method | Path | Purpose | Permission | Phase | Status |
 |---|---|---|---|---|---|
-| POST | /auth/login | Username or email and password; sets refresh cookie | Public | 2 | |
-| POST | /auth/pin | PIN sign-in or switch on a registered terminal | Public, registered terminal | 2 | |
-| POST | /auth/refresh | Rotate refresh token; reuse revokes the family | Refresh cookie | 2 | |
-| POST | /auth/logout | Revoke session, clear cookie | Authenticated | 2 | |
-| GET | /auth/me | Current user, roles, permissions, limits, scope | Authenticated | 2 | |
-| PATCH | /auth/me | Name, phone, language | Authenticated | 2 | |
-| POST | /auth/change-password | Change own password | Authenticated | 2 | |
-| POST | /auth/forgot-password | Issue reset token (email delivery later) | Public | 2 | |
-| POST | /auth/reset-password | Use reset token | Public | 2 | |
-| GET | /auth/sessions | Own sessions, or all with users.user.manage | Authenticated | 2 | |
-| DELETE | /auth/sessions/{id} | Revoke a session | Owner or users.user.manage | 2 | |
-| POST | /approvals/verify | Supervisor PIN; returns single-use approval token | Authenticated | 2 | |
-| GET | /users | List users | users.user.view | 2 | |
-| POST | /users | Create user | users.user.manage | 2 | |
-| GET | /users/{id} | User detail | users.user.view | 2 | |
-| PATCH | /users/{id} | Update profile, roles, scope (not own roles) | users.user.manage | 2 | |
-| DELETE | /users/{id} | Deactivate (soft delete; history kept) | users.user.manage | 2 | |
-| POST | /users/{id}/status | Activate or deactivate; revokes sessions | users.user.manage | 2 | |
-| POST | /users/{id}/unlock | Clear lockout | users.user.manage | 2 | |
-| POST | /users/{id}/pin | Set PIN (4 to 6 digits, unique per branch, not sequential) | users.user.manage or self | 2 | |
-| GET POST PATCH DELETE | /roles, /roles/{id} | Roles and limits; system roles cannot be deleted | users.role.manage | 2 | |
-| GET | /permissions | Permission catalogue | users.role.view | 2 | |
-| GET POST PATCH DELETE | /employees, /employees/{id} | Employee profiles | users.user.manage | 2 | |
-| GET | /audit-logs | Audit trail with filters | audit.log.view | 2 | |
+| POST | /auth/login | Username or email and password; sets refresh cookie | Public | 2 | Done, tested |
+| POST | /auth/pin-login | PIN sign-in or switch on a registered terminal | Public, registered terminal | 2 | Done, tested |
+| POST | /auth/refresh | Rotate refresh token; reuse revokes the family | Refresh cookie | 2 | Done, tested |
+| POST | /auth/logout | Revoke session, clear cookie | Authenticated | 2 | Done, tested |
+| GET | /auth/me | Current user, roles, permissions, limits, scope | Authenticated | 2 | Done, tested |
+| PATCH | /auth/me | Name, phone, language | Authenticated | 2 | Done, tested |
+| POST | /auth/change-password | Change own password | Authenticated | 2 | Done, tested |
+| POST | /auth/forgot-password | Issue reset token (email delivery later) | Public | 2 | Done, tested |
+| POST | /auth/reset-password | Use reset token | Public | 2 | Done, tested |
+| GET | /auth/sessions | Own sessions, or all with users.user.manage | Authenticated | 2 | Done, tested |
+| DELETE | /auth/sessions/{id} | Revoke a session | Owner or users.user.manage | 2 | Done, tested |
+| POST | /auth/approvals/verify | Supervisor PIN; returns single-use approval token | Authenticated | 2 | Done, tested |
+| GET | /users | List users | users.user.view | 2 | Done, tested |
+| POST | /users | Create user | users.user.manage | 2 | Done, tested |
+| GET | /users/{id} | User detail | users.user.view | 2 | Done, tested |
+| PATCH | /users/{id} | Update profile, roles, scope (not own roles) | users.user.manage | 2 | Done, tested |
+| DELETE | /users/{id} | Deactivate (soft delete; history kept) | users.user.manage | 2 | Done, tested |
+| POST | /users/{id}/status | Activate or deactivate; revokes sessions | users.user.manage | 2 | Done, tested |
+| POST | /users/{id}/unlock | Clear lockout | users.user.manage | 2 | Done, tested |
+| POST | /users/{id}/pin | Set PIN (4 to 6 digits, unique per company, not sequential) | users.user.manage or self | 2 | Done, tested |
+| GET POST PATCH DELETE | /roles, /roles/{id} | Roles and limits; system roles cannot be deleted | users.role.manage | 2 | Done, tested |
+| GET | /permissions | Permission catalogue | users.role.view | 2 | Done, tested |
+| GET POST PATCH DELETE | /employees, /employees/{id} | Employee profiles | users.user.manage | 2 | Done, tested |
+| GET | /audit-logs | Audit trail with filters | audit.log.view | 2 | Done, tested |
+| POST | /auth/pin, /approvals/verify | Aliases used by the frontend | Public / Authenticated | 2 | Done, tested |
+| GET | /audit-logs/verify | Recompute the audit hash chain | audit.log.view | 2 | Done, tested |
 
 ## Organisation (ORG, BRN)
 
-| Method | Path | Permission | Phase |
-|---|---|---|---|
-| GET PATCH | /companies/current | settings.company.manage to change | 3 |
-| GET PATCH | /settings | settings.system.manage to change | 3 |
-| GET POST PATCH | /branches, /branches/{id} | settings.branch.manage | 3 |
-| GET POST PATCH | /warehouses, /warehouses/{id} | settings.warehouse.manage | 3 |
-| GET POST PATCH | /locations, /locations/{id} | settings.warehouse.manage | 3 |
-| GET POST PATCH | /terminals, /terminals/{id} | settings.terminal.manage | 3 |
-| GET POST PATCH | /tax-codes, /tax-codes/{id} | settings.tax.manage | 3 |
-| GET POST PATCH | /payment-methods, /payment-methods/{id} | settings.payment.manage | 3 |
-| GET POST | /currencies/rates | settings.currency.manage | 3 |
-| GET PATCH | /document-sequences, /document-sequences/{id} | settings.numbering.manage | 3 |
-| GET POST PATCH | /receipt-templates, /receipt-templates/{id} | settings.receipt.manage | 3 |
+| Method | Path | Permission | Phase | Status |
+|---|---|---|---|---|
+| GET PATCH | /companies/current | settings.settings.manage to change | 3 | Done, tested |
+| GET PATCH | /settings | settings.settings.manage to change | 3 | Done, tested |
+| GET POST PATCH | /branches, /branches/{id} | settings.settings.manage | 3 | Done, tested |
+| GET POST PATCH | /warehouses, /warehouses/{id} | settings.settings.manage | 3 | Done, tested |
+| GET POST PATCH | /locations, /locations/{id} | settings.settings.manage | 3 | Done, tested |
+| GET POST PATCH | /terminals, /terminals/{id} | settings.settings.manage | 3 | Done, tested |
+| GET POST PATCH | /tax-codes, /tax-codes/{id} | settings.settings.manage | 3 | Done, tested |
+| GET POST PATCH | /payment-methods, /payment-methods/{id} | settings.settings.manage | 3 | Done, tested |
+| GET POST | /currencies/rates | settings.settings.manage | 3 | Done, tested |
+| GET PATCH | /document-sequences, /document-sequences/{id} | settings.settings.manage | 3 | Done, tested |
+| GET POST PATCH | /receipt-templates, /receipt-templates/{id} | settings.settings.manage | 3 | Done, tested |
 
 ## Catalogue and pricing (PRD, CAT, PRC)
 
-| Method | Path | Permission | Phase |
-|---|---|---|---|
-| GET | /products | products.product.view (cost fields need inventory.cost.view) | 3 |
-| POST | /products | products.product.create | 3 |
-| GET PATCH DELETE | /products/{id} | view, edit, delete (draft without movements only) | 3 |
-| GET | /products/{id}/history | products.product.view | 3 |
-| POST | /products/{id}/duplicate | products.product.create | 3 |
-| GET | /products/barcode/{barcode} | pos.sale.create or products.product.view | 3 |
-| GET | /products/barcodes | products.product.view | 3 |
-| POST | /products/barcodes/generate | products.product.edit | 3 |
-| GET POST PATCH DELETE | /categories, /brands, /units | products.category.manage | 3 |
-| GET | /price-lists | pricing.price.view | 3 |
-| GET POST DELETE | /prices, /prices/{id} | pricing.price.edit | 3 |
-| GET | /prices/history | pricing.price.view | 3 |
-| POST | /prices/bulk/preview, /prices/bulk | pricing.price.edit | 3 |
+| Method | Path | Permission | Phase | Status |
+|---|---|---|---|---|
+| GET | /products | products.product.view (cost fields need inventory.cost.view) | 3 | Done, tested |
+| POST | /products | products.product.create | 3 | Done, tested |
+| GET PATCH DELETE | /products/{id} | view, edit, delete (draft without movements only) | 3 | Done, tested |
+| GET | /products/{id}/history | products.product.view | 3 | Done, tested |
+| POST | /products/{id}/duplicate | products.product.create | 3 | Done, tested |
+| GET | /products/barcode/{barcode} | pos.sale.create or products.product.view | 3 | Done, tested |
+| GET | /products/barcodes | products.product.view | 3 | Done, tested |
+| POST | /products/barcodes/generate | products.product.edit | 3 | Done, tested |
+| GET POST PATCH DELETE | /categories, /brands, /units | products.category.manage | 3 | Done, tested |
+| GET | /price-lists | pricing.price.view | 3 | Done, tested |
+| GET POST DELETE | /prices, /prices/{id} | pricing.price.edit | 3 | Done, tested |
+| GET | /prices/history | pricing.price.view | 3 | Done, tested |
+| POST | /prices/bulk/preview, /prices/bulk | pricing.price.edit | 3 | Done, tested |
+| GET | /products/{id}/price?unit_id&branch_id | products.product.view or pos.sale.create (resolved price and source) | 3 | Done, tested |
+| GET | /files/products/{name} | Public, random file names (product images) | 3 | Done, tested |
 
 ## Inventory (INV, CST, ADJ, TRF, ALR)
 
-| Method | Path | Permission | Phase |
-|---|---|---|---|
+| Method | Path | Permission | Phase | Status |
+|---|---|---|---|---|
 | GET | /inventory/balances | inventory.stock.view | 4 |
 | GET | /inventory/availability | inventory.stock.view or pos.sale.create | 4 |
 | GET | /inventory/movements | inventory.stock.view | 4 |
@@ -103,8 +107,8 @@ Conventions for every endpoint (SRS 13.1):
 
 ## POS, payments, cash, sales, documents, returns (POS, PAY, CSH, SAL, DOC, RET)
 
-| Method | Path | Permission | Phase |
-|---|---|---|---|
+| Method | Path | Permission | Phase | Status |
+|---|---|---|---|---|
 | POST | /sales | pos.sale.create **IK** | 5 |
 | GET | /sales | sales.sale.view (own terminal without sales.sale.view_all) | 5 |
 | GET | /sales/current, /sales/held | pos.sale.create | 5 |
@@ -133,8 +137,8 @@ Conventions for every endpoint (SRS 13.1):
 
 ## Purchasing and customers (PUR, GRN, CUS)
 
-| Method | Path | Permission | Phase |
-|---|---|---|---|
+| Method | Path | Permission | Phase | Status |
+|---|---|---|---|---|
 | GET POST PATCH DELETE | /suppliers, /suppliers/{id} | purchasing.supplier.manage | 6 |
 | GET POST PATCH DELETE | /purchase-orders, /{id} | purchasing.order.create | 6 |
 | POST | /purchase-orders/{id}/submit, /approve, /reject, /send, /cancel | approve needs purchasing.order.approve, creator excluded | 6 |
@@ -148,8 +152,8 @@ Conventions for every endpoint (SRS 13.1):
 
 ## Reports and dashboard (RPT, DSH)
 
-| Method | Path | Permission | Phase |
-|---|---|---|---|
+| Method | Path | Permission | Phase | Status |
+|---|---|---|---|---|
 | GET | /dashboard | dashboard.dashboard.view | 7 |
 | GET | /reports | Catalogue filtered by permission | 7 |
 | GET | /reports/{id} | Per report, RPT-01 to RPT-34; `format=csv` or `xlsx` for files | 7 |
@@ -157,8 +161,8 @@ Conventions for every endpoint (SRS 13.1):
 
 ## Advanced (NTF, IMP, EXP, PRM)
 
-| Method | Path | Permission | Phase |
-|---|---|---|---|
+| Method | Path | Permission | Phase | Status |
+|---|---|---|---|---|
 | GET POST | /notifications, /notifications/read | Authenticated | 8 |
 | GET | /imports/templates/{type} | imports.import.manage | 8 |
 | POST | /imports/preview, /imports/commit **IK**, /imports/{id}/rollback | imports.import.manage | 8 |

@@ -11,6 +11,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import PERMISSIONS
+from app.core.runtime import use_selector_loop
 from app.db.session import dispose_engine, session_factory
 from app.models import Currency, LocationType, Permission
 
@@ -55,4 +56,5 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
+    use_selector_loop()
     asyncio.run(main())
