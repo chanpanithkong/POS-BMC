@@ -44,6 +44,12 @@ async def ensure_unique(db: AsyncSession, model: type, actor: Principal, field: 
         raise AppError(f"{label} '{value}' already exists.", code="DUPLICATE", status_code=409, details=[{"field": field, "message": f"{label} already exists."}])
 
 
+def num(value: Decimal) -> str:
+    """A quantity or amount for messages: 50, 2.5, 0.75 (never 5E+1 or 2.5000)."""
+    text = format(value.normalize(), "f")
+    return "0" if text in ("-0", "") else text
+
+
 def plain(value: Any) -> Any:
     if isinstance(value, uuid.UUID | Decimal | datetime | date | time):
         return str(value)

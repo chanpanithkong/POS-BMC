@@ -43,7 +43,7 @@ from app.models import (
 from app.schemas import purchasing as s
 from app.services import notifications, pricing, stock
 from app.services.approvals import LimitExceeded, SodViolation
-from app.services.common import apply_changes, ensure_unique, next_number, owned, plain, record_audit
+from app.services.common import apply_changes, ensure_unique, next_number, num, owned, plain, record_audit
 from app.services.principal import Principal
 
 CENT = Decimal("0.01")
@@ -289,7 +289,7 @@ async def po_action(db: AsyncSession, actor: Principal, po_id: uuid.UUID, verb: 
         flagged = await _not_creator(db, actor, po.created_by, "A purchase order")
         limit = actor.limits.get("po_approval_limit", Decimal(0))
         if po.total > limit:
-            raise LimitExceeded(f"Your purchase order approval limit is {limit.normalize()}; this order is {po.total.normalize()}.")
+            raise LimitExceeded(f"Your purchase order approval limit is {num(limit)}; this order is {num(po.total)}.")
         po.status, po.approved_by_id, po.approved_by_name = "APPROVED", actor.user_id, actor.full_name
         _event(po, "Approved", actor)
     elif verb == "reject":
@@ -412,20 +412,20 @@ async def _discrepancies(db: AsyncSession, actor: Principal, g: GoodsReceipt) ->
             received_by_line[ln.po_line_id] = received_by_line.get(ln.po_line_id, Decimal(0)) + (ln.quantity_received + ln.quantity_damaged) * ln.factor
             pl = po_lines[ln.po_line_id]
             if ln.unit_cost * pl.factor != pl.unit_cost * ln.factor:
-                notes.append(f"{sku}: cost {ln.unit_cost.normalize()} differs from the PO cost {pl.unit_cost.normalize()}")
+                notes.append(f"{sku}: cost {num(ln.unit_cost)} differs from the PO cost {num(pl.unit_cost)}")
             if ln.quantity_damaged:
-                notes.append(f"{sku}: {ln.quantity_damaged.normalize()} damaged")
+                notes.append(f"{sku}: {num(ln.quantity_damaged)} damaged")
             if ln.quantity_rejected:
-                notes.append(f"{sku}: {ln.quantity_rejected.normalize()} rejected")
+                notes.append(f"{sku}: {num(ln.quantity_rejected)} rejected")
         for pl_id, qty in received_by_line.items():
             pl = po_lines[pl_id]
             open_base = pl.quantity_base - pl.received_base - pl.cancelled_base
             sku = products[pl.product_id].sku
             if qty > open_base * (1 + tolerance / 100):
-                notes.append(f"{sku}: {qty.normalize()} received against {open_base.normalize()} open, beyond the {tolerance.normalize()}% tolerance")
+                notes.append(f"{sku}: {num(qty)} received against {num(open_base)} open, beyond the {num(tolerance)}% tolerance")
                 needs_approval = True
             elif qty < open_base:
-                notes.append(f"{sku}: short by {(open_base - qty).normalize()}")
+                notes.append(f"{sku}: short by {num(open_base - qty)}")
     g.discrepancies = notes
     g.flagged_for_review = needs_approval
     return needs_approval
@@ -603,10 +603,10 @@ async def create_invoice(db: AsyncSession, actor: Principal, data: s.InvoiceCrea
         tolerance = max(cents(received / 100), CENT)
         if abs(received - data.amount) <= tolerance:
             status = "MATCHED"
-            notes.append(f"Matches the received value {received.normalize()}.")
+            notes.append(f"Matches the received value {num(received)}.")
         else:
             status = "MISMATCH"
-            notes.append(f"Invoice {data.amount.normalize()} vs received value {received.normalize()} (difference {(data.amount - received).normalize()}).")
+            notes.append(f"Invoice {num(data.amount)} vs received value {num(received)} (difference {num(data.amount - received)}).")
     near = await db.scalar(select(SupplierInvoice.invoice_no).where(SupplierInvoice.supplier_id == data.supplier_id, SupplierInvoice.amount == data.amount, SupplierInvoice.invoice_date == data.invoice_date).limit(1))
     if near:
         notes.append(f"Warning: invoice {near} has the same amount and date.")
@@ -628,7 +628,7 @@ async def pay_invoice(db: AsyncSession, actor: Principal, invoice_id: uuid.UUID,
         raise NotFound("Supplier invoice")
     outstanding = inv.amount - inv.paid_amount
     if data.amount > outstanding:
-        raise ValidationFailed("amount", f"Only {outstanding.normalize()} is outstanding.")
+        raise ValidationFailed("amount", f"Only {num(outstanding)} is outstanding.")
     db.add(SupplierPayment(invoice_id=inv.id, amount=data.amount, reference=data.reference, user_id=actor.user_id, by_name=actor.full_name))
     inv.paid_amount += data.amount
     inv.status = "PAID" if inv.paid_amount >= inv.amount else "PARTIALLY_PAID"

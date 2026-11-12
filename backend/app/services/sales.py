@@ -45,7 +45,7 @@ from app.models import (
 )
 from app.schemas import sales as s
 from app.services import approvals, cash_sessions, customers, pricing, promotions, stock
-from app.services.common import next_number, record_audit
+from app.services.common import next_number, num, record_audit
 from app.services.principal import Principal
 
 CENT = Decimal("0.01")
@@ -267,7 +267,7 @@ async def reprice(db: AsyncSession, sale: Sale, lines: list[SaleLine], *, mark_c
         if line.line_discount and not manual_discount:
             line.line_discount = None  # automatic discounts are recalculated below
         if line.override_price is not None:
-            line.unit_price, line.price_source, line.price_explanation = line.override_price, "OVERRIDE", f"Override of {resolved.price.normalize()}: {line.override_reason}"
+            line.unit_price, line.price_source, line.price_explanation = line.override_price, "OVERRIDE", f"Override of {num(resolved.price)}: {line.override_reason}"
         else:
             line.unit_price, line.price_source = resolved.price, PRICE_SOURCE.get(base_source, "STANDARD")
             line.price_explanation = {"BRANCH": "Branch price", "CUSTOMER_GROUP": "Customer group price"}.get(base_source, "Retail price") + (" (from base unit)" if "BASE_UNIT" in (resolved.source or "") else "")
@@ -283,7 +283,7 @@ async def reprice(db: AsyncSession, sale: Sale, lines: list[SaleLine], *, mark_c
                 line.promotion_id, line.promotion_name = promo.id, promo.name
         if mark_changes and old_price and old_price != line.unit_price:
             line.price_changed = True
-            notices.append(f"{line.name_en}: price changed from {old_price.normalize()} to {line.unit_price.normalize()}")
+            notices.append(f"{line.name_en}: price changed from {num(old_price)} to {num(line.unit_price)}")
         tax = await db.get(TaxCode, product.tax_code_id) if product.tax_code_id else None
         line.tax_code_id, line.tax_code, line.tax_rate = (tax.id, tax.code, tax.rate) if tax and tax.status == "ACTIVE" else (None, "", Decimal(0))
         line.gross_amount = cents(line.unit_price * line.quantity)
@@ -575,7 +575,7 @@ async def add_payment(db: AsyncSession, actor: Principal, sale_id: uuid.UUID, da
             change = change_tender
     elif data.method == "STORE_CREDIT":
         if tendered > balance:
-            raise ValidationFailed("amount_tendered", f"Store credit cannot exceed the balance of {balance.normalize()} USD.")
+            raise ValidationFailed("amount_tendered", f"Store credit cannot exceed the balance of {num(balance)} USD.")
         applied = cents(tendered)
         customer = await db.scalar(select(Customer).where(Customer.id == sale.customer_id).with_for_update())
         await customers.change_credit(db, actor, customer, -applied, "Used on a sale", sale_id=sale.id)
@@ -584,7 +584,7 @@ async def add_payment(db: AsyncSession, actor: Principal, sale_id: uuid.UUID, da
             raise ValidationFailed("change_currency", "Change is given only for cash.")
         in_sale_currency = tendered if data.currency == "USD" else tendered / rate
         if cents(in_sale_currency) > balance:
-            raise ValidationFailed("amount_tendered", f"A {data.method.lower().replace('_', ' ')} payment cannot exceed the balance of {balance.normalize()} USD.")
+            raise ValidationFailed("amount_tendered", f"A {data.method.lower().replace('_', ' ')} payment cannot exceed the balance of {num(balance)} USD.")
         applied = min(cents(in_sale_currency), balance)
         confirmation = (data.approval_code or reference) if data.method == "CARD" else reference
         if confirmation:
@@ -683,7 +683,7 @@ async def _reserve(db: AsyncSession, actor: Principal, sale: Sale, lines: list[S
         rows = await _location_rows(db, line.location_id, line.product_id)
         free = sum((r.on_hand - r.reserved for r in rows), Decimal(0))
         if free < line.quantity_base and not settings.get("negative_stock_allowed"):
-            raise stock.InsufficientStock(f"Not enough {line.sku} to hold for this payment: {free.normalize()} available.",
+            raise stock.InsufficientStock(f"Not enough {line.sku} to hold for this payment: {num(free)} available.",
                                           details=[{"product_id": str(line.product_id), "sku": line.sku, "available": str(free), "requested": str(line.quantity_base)}])
         remaining = line.quantity_base
         for row in rows:
@@ -747,7 +747,7 @@ async def finalize(db: AsyncSession, actor: Principal, sale_id: uuid.UUID) -> di
         raise AppError("Prices changed since the items were added. Review the new total.", code="PRICES_CHANGED", status_code=409, details=[{"message": n} for n in sale.notices])
     await recalc_paid(db, sale)
     if sale.paid_total < sale.grand_total:
-        raise AppError(f"{(sale.grand_total - sale.paid_total).normalize()} USD is still due.", code="BALANCE_DUE", status_code=409)  # partial payments are off (D-11)
+        raise AppError(f"{num(sale.grand_total - sale.paid_total)} USD is still due.", code="BALANCE_DUE", status_code=409)  # partial payments are off (D-11)
 
     used = {ln.promotion_id for ln in lines if ln.promotion_id}
     if sale.order_discount and sale.order_discount.get("promotion_id"):

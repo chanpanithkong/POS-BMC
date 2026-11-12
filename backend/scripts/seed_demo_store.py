@@ -591,7 +591,7 @@ async def return_items(shop: Shop, till: Till, sale: dict) -> None:
 
 async def expense(shop: Shop, till: Till, cat: str, description: str, amount: Decimal, day, method: str = "BANK_TRANSFER") -> None:
     body = {"date": day.isoformat(), "category_id": shop.expense_cats[cat], "description": description, "amount": money(amount), "currency": "USD", "payment_method": method, "branch_id": till.branch}
-    if amount >= 100:
+    if amount > 50:  # company policy: a receipt or invoice above 50 USD
         body["attachment"] = PDF
     created = await shop.api.post("owner", "expenses", body)
     if created.get("status") == "SUBMITTED" and day < datetime.now(TZ).date() - timedelta(days=1):

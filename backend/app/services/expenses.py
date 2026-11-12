@@ -19,7 +19,7 @@ from app.models import Branch, CashierSession, CashMovement, Company, Expense, E
 from app.schemas import extras as s
 from app.services import files, notifications, stock
 from app.services.approvals import SodViolation
-from app.services.common import apply_changes, ensure_unique, next_number, owned, plain, record_audit
+from app.services.common import apply_changes, ensure_unique, next_number, num, owned, plain, record_audit
 from app.services.principal import Principal
 
 CENT = Decimal("0.01")
@@ -127,7 +127,7 @@ async def _validate(db: AsyncSession, actor: Principal, values: dict) -> tuple[D
     base = (Decimal(values["amount"]) / rate).quantize(CENT, ROUND_HALF_UP)
     threshold = Decimal(str((await _settings(db, actor.company_id)).get("expense_attachment_threshold", "50")))
     if base > threshold and not values.get("attachment_url"):
-        raise ValidationFailed("attachment", f"A supporting document is required above {threshold.normalize()} USD.")
+        raise ValidationFailed("attachment", f"A supporting document is required above {num(threshold)} USD.")
     return base, rate
 
 
