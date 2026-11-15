@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Noto_Sans_Khmer } from "next/font/google";
+import Script from "next/script";
 import { AppProviders } from "@/components/shared/app-providers";
+import { APPEARANCE_BOOT_SCRIPT } from "@/lib/appearance";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -28,6 +30,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} ${notoKhmer.variable} h-full antialiased`}>
       <body className="min-h-full">
+        {/* Applies the saved accent colour and text size before the first paint. */}
+        <Script id="pims-appearance" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: APPEARANCE_BOOT_SCRIPT }} />
         <AppProviders>{children}</AppProviders>
       </body>
     </html>

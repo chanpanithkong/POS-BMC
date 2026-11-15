@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { useRequireAuth, LanguageToggle, ThemeToggle } from "@/components/layout/app-shell";
+import { FullscreenToggle } from "@/components/layout/header-controls";
 import { PaymentDialog } from "@/components/pos/payment-dialog";
 import { useDialogs } from "@/components/shared/dialogs-provider";
 import { FormDialog } from "@/components/shared/form-dialog";
@@ -376,6 +377,7 @@ function Terminal({ terminalId }: { terminalId: string }) {
         <div className="ml-auto flex min-w-0 items-center gap-1">
           <span className="hidden max-w-36 truncate text-xs text-muted-foreground sm:block">{user?.fullName}</span>
           <Button variant="ghost" size="icon-sm" aria-label="Lock or switch cashier" onClick={switchCashier}><Lock /></Button>
+          <FullscreenToggle />
           <LanguageToggle />
           <ThemeToggle />
           <Button variant="ghost" size="sm" onClick={() => { setTerminal(null); }}>Change terminal</Button>

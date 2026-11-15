@@ -1,17 +1,14 @@
 "use client";
 
-import { Bell, ChevronDown, ChevronRight, LogOut, Menu, Moon, PanelLeft, Search, Sun, UserRound, Database } from "lucide-react";
+import { Bell, ChevronDown, ChevronRight, Menu, PanelLeft, Search, Store } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { GlobalSearch } from "@/components/layout/global-search";
-import { useDialogs } from "@/components/shared/dialogs-provider";
+import { AppearanceMenu, FullscreenToggle, LanguageMenu, UserMenu } from "@/components/layout/header-controls";
 import { PageSkeleton } from "@/components/shared/states";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -104,9 +101,9 @@ function Notifications() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon-sm" className="relative" aria-label={`Notifications, ${unread} unread`}>
-          <Bell />
-          {unread ? <span className="tabular absolute -top-0.5 -right-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-white">{unread > 99 ? "99+" : unread}</span> : null}
+        <Button variant="ghost" size="sm" className="relative h-8 w-8 rounded-full px-0 text-muted-foreground hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground" aria-label={`Notifications, ${unread} unread`}>
+          <Bell className="size-4" />
+          {unread ? <span className="tabular absolute -top-1 -right-1 grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-white ring-2 ring-card">{unread > 99 ? "99+" : unread}</span> : null}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[min(22rem,calc(100vw-2rem))] p-0">
@@ -146,7 +143,7 @@ function BranchSelector() {
   }, [branchId, branches, consolidated, setBranch]);
   return (
     <Select value={branchId} onValueChange={setBranch}>
-      <SelectTrigger size="sm" className="w-36 lg:w-44" aria-label="Branch"><SelectValue /></SelectTrigger>
+      <SelectTrigger size="sm" className="w-full min-w-0 gap-1.5 overflow-hidden [&>span]:truncate" aria-label="Branch"><Store className="size-4 shrink-0 text-muted-foreground" /><SelectValue /></SelectTrigger>
       <SelectContent>
         {consolidated ? <SelectItem value="all">{t("All branches")}</SelectItem> : null}
         {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.nameEn}</SelectItem>)}
@@ -155,67 +152,8 @@ function BranchSelector() {
   );
 }
 
-function UserMenu() {
-  const user = useAuthStore((s) => s.user);
-  const logout = useAuthStore((s) => s.logout);
-  const router = useRouter();
-  const { confirm } = useDialogs();
-  const t = useT();
-  const initials = user?.fullName.split(" ").map((p) => p[0]).slice(0, 2).join("") ?? "";
-
-  const resetDemo = async () => {
-    const ok = await confirm({ title: "Reset demo data?", description: "All records in this browser return to the original sample data. This cannot be undone.", confirmLabel: "Reset data", destructive: true });
-    if (!ok) return;
-    const { resetMockData } = await import("@/mock-server/router");
-    resetMockData();
-    await logout().catch(() => undefined);
-    window.location.replace(new URL("/login", window.location.origin));
-  };
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button type="button" className="flex items-center gap-2 rounded-md p-1 hover:bg-muted" aria-label="Account menu">
-          <Avatar className="size-7"><AvatarFallback className="bg-accent text-xs font-medium">{initials}</AvatarFallback></Avatar>
-          <span className="hidden text-left leading-tight xl:block">
-            <span className="block max-w-32 truncate text-sm font-medium">{user?.fullName}</span>
-            <span className="block max-w-32 truncate text-xs text-muted-foreground">{user?.roles[0]?.name}</span>
-          </span>
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel className="font-normal">
-          <span className="block font-medium">{user?.fullName}</span>
-          <span className="block text-xs text-muted-foreground">{user?.roles.map((r) => r.name).join(", ")}</span>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => router.push("/profile")}><UserRound />{t("Profile")}</DropdownMenuItem>
-        {isMockMode ? <DropdownMenuItem onClick={() => void resetDemo()}><Database />Reset demo data</DropdownMenuItem> : null}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => void logout().then(() => router.replace("/login"))}><LogOut />{t("Sign out")}</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-export function ThemeToggle() {
-  const { resolvedTheme, setTheme } = useTheme();
-  return (
-    <Button variant="ghost" size="icon-sm" aria-label="Switch colour theme" onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>
-      <Sun className="hidden dark:block" /><Moon className="dark:hidden" />
-    </Button>
-  );
-}
-
-export function LanguageToggle() {
-  const language = useUiStore((s) => s.language);
-  const setLanguage = useUiStore((s) => s.setLanguage);
-  return (
-    <Button variant="ghost" size="sm" className="px-2 text-xs" aria-label="Switch language" onClick={() => setLanguage(language === "en" ? "km" : "en")}>
-      {language === "en" ? "ខ្មែរ" : "EN"}
-    </Button>
-  );
-}
+/** Kept under their old names: the sign-in page and the POS screen use them too. */
+export { AppearanceMenu as ThemeToggle, LanguageMenu as LanguageToggle } from "@/components/layout/header-controls";
 
 function Breadcrumbs() {
   const pathname = usePathname();
@@ -288,15 +226,18 @@ export function AppShell({ children }: { children: ReactNode }) {
         <header className="no-print sticky top-0 z-30 flex h-13 items-center gap-2 border-b bg-card px-3 sm:px-4">
           <Button variant="ghost" size="icon-sm" className="md:hidden" aria-label="Open menu" onClick={() => setMobileOpen(true)}><Menu /></Button>
           <Button variant="ghost" size="icon-sm" className="hidden lg:inline-flex" aria-label="Collapse sidebar" onClick={toggle}><PanelLeft /></Button>
-          <div className="min-w-0"><BranchSelector /></div>
-          <Button variant="outline" size="sm" className="ml-1 hidden w-56 justify-start text-muted-foreground sm:inline-flex" onClick={() => setSearchOpen(true)}>
-            <Search />Search<kbd className="ml-auto text-[10px]">Ctrl K</kbd>
+          <div className="w-36 min-w-0 shrink lg:w-44"><BranchSelector /></div>
+          <Button variant="outline" size="sm" className="ml-1 hidden w-56 min-w-0 shrink justify-start overflow-hidden text-muted-foreground sm:inline-flex" onClick={() => setSearchOpen(true)}>
+            <Search /><span className="truncate">Search</span><kbd className="ml-auto hidden text-[10px] lg:inline">Ctrl K</kbd>
           </Button>
           <Button variant="ghost" size="icon-sm" className="sm:hidden" aria-label="Search" onClick={() => setSearchOpen(true)}><Search /></Button>
-          <div className="ml-auto flex items-center gap-0.5 sm:gap-1">
-            <LanguageToggle />
-            <ThemeToggle />
-            <Notifications />
+          <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <div className="flex items-center gap-0.5 rounded-full border bg-muted/40 p-0.5">
+              <FullscreenToggle />
+              <LanguageMenu />
+              <AppearanceMenu />
+              <Notifications />
+            </div>
             <UserMenu />
           </div>
         </header>

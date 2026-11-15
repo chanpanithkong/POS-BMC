@@ -112,12 +112,51 @@
   --sidebar-border: oklch(0.3 0.01 255);
 }
 
+/*
+ * Accent colours (Appearance menu). Teal is the default above; the others set a hue (--ah),
+ * chroma (--ac) and light-mode primary lightness (--al), and these rules derive the brand tokens.
+ * Selectors are :root[...] so they outrank .dark; status and chart colours never change.
+ */
+:root[data-accent="blue"] { --ah: 255; --ac: 0.15; --al: 0.5; }
+:root[data-accent="violet"] { --ah: 293; --ac: 0.17; --al: 0.5; }
+:root[data-accent="rose"] { --ah: 12; --ac: 0.18; --al: 0.54; }
+:root[data-accent="orange"] { --ah: 52; --ac: 0.15; --al: 0.56; }
+:root[data-accent="green"] { --ah: 150; --ac: 0.12; --al: 0.5; }
+
+:root[data-accent]:not([data-accent="teal"]) {
+  --primary: oklch(var(--al) var(--ac) var(--ah));
+  --primary-foreground: oklch(0.985 0.004 var(--ah));
+  --ring: oklch(calc(var(--al) + 0.1) calc(var(--ac) * 0.85) var(--ah));
+  --accent: oklch(0.95 0.02 var(--ah));
+  --accent-foreground: oklch(0.32 calc(var(--ac) * 0.6) var(--ah));
+  --sidebar-accent: oklch(0.95 0.02 var(--ah));
+  --sidebar-accent-foreground: oklch(0.32 calc(var(--ac) * 0.6) var(--ah));
+}
+
+:root.dark[data-accent]:not([data-accent="teal"]) {
+  --primary: oklch(0.73 calc(var(--ac) * 0.9) var(--ah));
+  --primary-foreground: oklch(0.2 0.03 var(--ah));
+  --ring: oklch(0.66 calc(var(--ac) * 0.8) var(--ah));
+  --accent: oklch(0.3 0.04 var(--ah));
+  --accent-foreground: oklch(0.9 0.03 var(--ah));
+  --sidebar-accent: oklch(0.3 0.04 var(--ah));
+  --sidebar-accent-foreground: oklch(0.92 0.03 var(--ah));
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   html {
     overflow-x: hidden;
+  }
+  /*
+   * Menus, selects and dialogs lock page scrolling and add a right margin to <body> the width of
+   * the scrollbar they expect to hide. Here <html> owns the scrollbar (overflow-x above), so it
+   * never disappears and that margin only squeezes the layout sideways. Scrolling stays locked.
+   */
+  html body[data-scroll-locked] {
+    margin-right: 0 !important;
   }
   body {
     @apply bg-background text-foreground;

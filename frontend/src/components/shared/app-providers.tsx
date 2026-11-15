@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { authBridge } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
+import { applyAppearance } from "@/lib/appearance";
 import { authApi } from "@/services";
 import { useAuthStore } from "@/stores/auth-store";
 import { useUiStore } from "@/stores/ui-store";
@@ -28,8 +29,13 @@ export function AppProviders({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void useUiStore.persist.rehydrate();
-    authBridge.setTerminal(useUiStore.getState().terminalId);
-    const unsubscribe = useUiStore.subscribe((state) => authBridge.setTerminal(state.terminalId));
+    const initial = useUiStore.getState();
+    authBridge.setTerminal(initial.terminalId);
+    applyAppearance(initial.accent, initial.fontSize);
+    const unsubscribe = useUiStore.subscribe((state, prev) => {
+      authBridge.setTerminal(state.terminalId);
+      if (state.accent !== prev.accent || state.fontSize !== prev.fontSize) applyAppearance(state.accent, state.fontSize);
+    });
     authBridge.onUnauthorized(() => useAuthStore.getState().expire());
     authBridge.onRefresh(async () => {
       const auth = await authApi.refresh();
