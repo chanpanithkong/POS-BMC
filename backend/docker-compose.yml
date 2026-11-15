@@ -1,5 +1,9 @@
-# Local stack: PostgreSQL 16 + API. Values come from backend/.env (never committed).
-# Usage (PowerShell):  docker compose --env-file .env up --build
+# Full stack: PostgreSQL 16 + API + worker + web frontend. Values come from backend/.env (never committed).
+# Usage (PowerShell, from the backend folder):  docker compose --env-file .env up --build
+# Then open http://localhost:3000 (web) and http://localhost:8000/docs (API).
+#
+# Other PCs on the network: in backend/.env set PUBLIC_API_URL=http://<server-ip>:8000/api/v1 and
+# CORS_ORIGINS=http://<server-ip>:3000, then run the same command again (the web image is rebuilt).
 services:
   db:
     image: postgres:16-alpine
@@ -39,6 +43,20 @@ services:
     depends_on:
       api:
         condition: service_started
+
+  web:
+    build:
+      context: ../frontend
+      args:
+        # The address the users' browsers call; baked into the web image at build time.
+        NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8000/api/v1}
+        NEXT_PUBLIC_API_MODE: live
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
 
 volumes:
   pims_pgdata:

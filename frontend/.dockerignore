@@ -1,0 +1,17 @@
+# Rebuilt inside the image
+node_modules
+.next
+out
+*.tsbuildinfo
+
+# Local settings and secrets never go into the image; the API address comes from --build-arg
+.env*
+!.env.example
+
+# Not needed to build
+.git
+.claude
+docs
+*.log
+Dockerfile
+.dockerignore

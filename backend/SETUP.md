@@ -180,6 +180,23 @@ Run everything on one "server" PC, and open the browser on the other PCs. Say th
 
 Keep this on a trusted local network. For access over the internet, put both behind HTTPS (for example a reverse proxy) and set `REFRESH_COOKIE_SECURE=true`.
 
+## Alternative: run everything with Docker
+
+Instead of steps 1, 3 and 4, a PC with [Docker Desktop](https://www.docker.com/products/docker-desktop/) can run the whole system in containers: PostgreSQL, the API, the worker and the web frontend. You still need Git (step 2) and `backend\.env` (from `.env.example`, with `DB_PASSWORD` and `SECRET_KEY` filled in).
+
+```powershell
+cd $HOME\Documents\pos\backend
+docker compose --env-file .env up --build -d
+docker compose exec api python -m scripts.bootstrap    # first time only: company, admin and owner
+```
+
+Open http://localhost:3000. The API is at http://localhost:8000/docs.
+
+- **Database:** the containers use their own PostgreSQL, published on port 5433, with data kept in a Docker volume. It is separate from a PostgreSQL installed on the PC. It starts empty, so run the bootstrap above.
+- **Other PCs:** in `backend\.env`, set `PUBLIC_API_URL=http://<server-ip>:8000/api/v1` and `CORS_ORIGINS=http://<server-ip>:3000`, then run the `up --build` command again. The browser code has the API address built in, so the web image has to be rebuilt whenever it changes. Allow ports 3000 and 8000 through the firewall, as in section 5.
+- **Everyday commands:** `docker compose logs -f web api` shows the logs. `docker compose down` stops everything; your data stays. `docker compose up --build -d` again after a `git pull`.
+- **Frontend image on its own:** from the `frontend` folder, run `docker build -t pims-frontend --build-arg NEXT_PUBLIC_API_URL=http://<api-host>:8000/api/v1 .` and then `docker run -d -p 3000:3000 pims-frontend`.
+
 ## 6. Check everything (optional)
 
 ```powershell

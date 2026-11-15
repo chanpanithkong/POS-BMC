@@ -127,7 +127,13 @@ If `DB_PASSWORD` is empty or the test database is unreachable, the database test
 docker compose --env-file .env up --build
 ```
 
-Compose starts PostgreSQL 16, published on port **5433** so it does not clash with a local server on 5432, the API on port 8000, and the background worker. Uploaded files are kept in the `pims_storage` volume. Migrations run when the API starts. If `DB_PASSWORD` contains `@`, `:`, `/` or `%`, URL-encode it in the compose `DATABASE_URL`.
+Compose starts:
+- PostgreSQL 16, published on port **5433** so it does not clash with a local server on 5432
+- the API on port 8000
+- the background worker
+- the web frontend on port 3000, built from `../frontend/Dockerfile`
+
+The frontend image has the API address its users' browsers call built in: `PUBLIC_API_URL` in `.env`, default `http://localhost:8000/api/v1`. Rebuild with `up --build` after changing it. Uploaded files are kept in the `pims_storage` volume. Migrations run when the API starts. If `DB_PASSWORD` contains `@`, `:`, `/` or `%`, URL-encode it in the compose `DATABASE_URL`.
 
 ## Authentication for the frontend
 
