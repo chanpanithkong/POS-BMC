@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { isMockMode } from "@/lib/api/config";
-import { getErrorMessage } from "@/lib/api/errors";
+import { ApiError, getErrorMessage } from "@/lib/api/errors";
 import { authApi } from "@/services";
 import { useAuthStore } from "@/stores/auth-store";
 import { useUiStore } from "@/stores/ui-store";
@@ -74,7 +74,15 @@ export default function LoginPage() {
       setTerminal(terminal);
       finish(await authApi.pin(value, terminal));
     } catch (e) {
-      setError(getErrorMessage(e));
+      if (e instanceof ApiError && e.code === "TERMINAL_NOT_REGISTERED") {
+        // The saved terminal belongs to another database or was removed: forget it, so the next
+        // password sign-in leads to the terminal picker on the POS screen.
+        setTerminal(null);
+        setTerminalLocal(null);
+        setError("This device's saved terminal is not known to this system. Sign in with your password, open the POS and choose this counter again; PIN sign-in works after that.");
+      } else {
+        setError(getErrorMessage(e));
+      }
       setPin("");
     } finally {
       setBusy(false);

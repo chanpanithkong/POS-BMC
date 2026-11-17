@@ -128,6 +128,12 @@ function Terminal({ terminalId }: { terminalId: string }) {
 
   const terminals = useApiQuery(["terminals"], () => terminalsApi.list());
   const terminal = terminals.data?.find((x) => x.id === terminalId);
+  // A terminal saved from another database (or since removed) is unknown here: forget it so the
+  // picker appears, instead of every POS call failing with TERMINAL_NOT_REGISTERED.
+  const unknownTerminal = Boolean(terminals.data && !terminal);
+  useEffect(() => {
+    if (unknownTerminal) setTerminal(null);
+  }, [unknownTerminal, setTerminal]);
   const settings = useApiQuery(["settings"], settingsApi.get);
   const products = useApiQuery(["products", "pos", terminalId], () => productsApi.list({ sellable: true, terminalId }));
   const categories = useApiQuery(["categories"], () => categoriesApi.list());

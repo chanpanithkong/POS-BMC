@@ -43,6 +43,7 @@ from app.core.security import hash_secret, pin_lookup
 from app.db import session as db_session
 from app.models import Company, Role, User, UserBranchAccess, UserRole
 from app.services.bootstrap import create_company
+from scripts.demo_catalogue import BRANDS, CATEGORIES, FAVOURITES, FIRST_NAMES, LAST_NAMES, PRODUCTS, SUPPLIER_OF, SUPPLIERS
 from scripts.seed import seed_reference_data
 from scripts.seed_demo import USERS, ensure_database
 
@@ -120,61 +121,8 @@ def local(day, hh: int, mm: int = 0) -> datetime:
     return datetime.combine(day, time(hh, mm), TZ).astimezone(UTC)
 
 
-# Sample catalogue: sku, name, Khmer name, category, brand, price, cost, units per case, popularity, expiry-tracked
-
-CATEGORIES = [("DRINK", "Drinks", "ភេសជ្ជៈ"), ("SNACK", "Snacks", "នំចំណី"), ("GROCERY", "Grocery", "គ្រឿងទេស"), ("FRESH", "Dairy and bakery", "ទឹកដោះគោ និងនំប៉័ង"),
-              ("HOME", "Household", "គ្រឿងប្រើប្រាស់"), ("CARE", "Personal care", "ថែរក្សាខ្លួន")]
-BRANDS = [("ANGKOR", "Angkor Beverages (demo)"), ("MEKONG", "Mekong Foods (demo)"), ("LOTUS", "Lotus Home (demo)"), ("SUNRISE", "Sunrise Dairy (demo)"), ("PURE", "Pure Care (demo)")]
-SUPPLIERS = [("SUP-BEV", "Angkor Beverage Distribution (demo)", 2), ("SUP-FOOD", "Mekong Foods Wholesale (demo)", 3), ("SUP-FRESH", "Sunrise Dairy Co. (demo)", 1),
-             ("SUP-HOME", "Lotus Home Supplies (demo)", 4), ("SUP-CARE", "Pure Care Trading (demo)", 5)]
-SUPPLIER_OF = {"DRINK": "SUP-BEV", "SNACK": "SUP-FOOD", "GROCERY": "SUP-FOOD", "FRESH": "SUP-FRESH", "HOME": "SUP-HOME", "CARE": "SUP-CARE"}
-PRODUCTS = [
-    ("DRK-COLA-330", "Cola 330ml can", "កូកាកំប៉ុង", "DRINK", "ANGKOR", "0.75", "0.45", 24, 10, False),
-    ("DRK-LEMON-330", "Lemon soda 330ml can", "ទឹកក្រូចឆ្មា", "DRINK", "ANGKOR", "0.70", "0.42", 24, 5, False),
-    ("DRK-WATER-500", "Drinking water 500ml", "ទឹកសុទ្ធ ៥០០មល", "DRINK", "ANGKOR", "0.35", "0.15", 24, 14, False),
-    ("DRK-WATER-1500", "Drinking water 1.5L", "ទឹកសុទ្ធ ១.៥លីត្រ", "DRINK", "ANGKOR", "0.80", "0.45", 12, 6, False),
-    ("DRK-OJ-1L", "Orange juice 1L", "ទឹកក្រូច", "DRINK", None, "2.50", "1.60", 12, 3, False),
-    ("DRK-COFFEE-CAN", "Iced coffee can", "កាហ្វេកំប៉ុង", "DRINK", None, "0.90", "0.55", 24, 6, False),
-    ("DRK-GTEA-500", "Green tea 500ml", "តែបៃតង", "DRINK", None, "0.85", "0.50", 24, 5, False),
-    ("DRK-ENERGY-250", "Energy drink 250ml", "ភេសជ្ជៈថាមពល", "DRINK", "ANGKOR", "0.80", "0.48", 24, 7, False),
-    ("DRK-BEER-330", "Beer 330ml can", "ស្រាបៀរ", "DRINK", "ANGKOR", "0.90", "0.62", 24, 9, False),
-    ("DRK-SOY-250", "Soy milk 250ml", "ទឹកសណ្ដែក", "DRINK", None, "0.50", "0.30", 24, 4, False),
-    ("SNK-CHIPS-50", "Potato chips 50g", "ដំឡូងបារាំងចៀន", "SNACK", "MEKONG", "1.10", "0.65", 24, 5, False),
-    ("SNK-CASSAVA", "Cassava chips 60g", "ដំឡូងមីចៀន", "SNACK", "MEKONG", "0.60", "0.33", 30, 4, False),
-    ("SNK-CHOCO", "Chocolate bar 45g", "សូកូឡា", "SNACK", None, "1.00", "0.58", 24, 4, False),
-    ("SNK-BISCUIT", "Butter biscuits 120g", "នំប៊ីស្គី", "SNACK", "MEKONG", "0.90", "0.52", 24, 4, False),
-    ("SNK-PEANUT", "Roasted peanuts 100g", "សណ្ដែកដីលីង", "SNACK", "MEKONG", "0.70", "0.40", 30, 3, False),
-    ("SNK-CUPCAKE", "Cup cake", "នំខេក", "SNACK", None, "0.40", "0.22", 24, 3, False),
-    ("GRC-RICE-5KG", "Jasmine rice 5kg", "អង្ករផ្កាម្លិះ ៥គ.ក", "GROCERY", "MEKONG", "6.50", "4.80", 4, 4, False),
-    ("GRC-NOODLE", "Instant noodles", "មីកញ្ចប់", "GROCERY", "MEKONG", "0.30", "0.18", 30, 12, False),
-    ("GRC-OIL-1L", "Cooking oil 1L", "ប្រេងឆា", "GROCERY", None, "2.40", "1.75", 12, 4, False),
-    ("GRC-FISHSAUCE", "Fish sauce 700ml", "ទឹកត្រី", "GROCERY", "MEKONG", "1.50", "0.95", 12, 3, False),
-    ("GRC-SOYSAUCE", "Soy sauce 600ml", "ទឹកស៊ីអ៊ីវ", "GROCERY", None, "1.20", "0.75", 12, 2, False),
-    ("GRC-SUGAR-1KG", "White sugar 1kg", "ស្ករស", "GROCERY", None, "1.10", "0.80", 10, 3, False),
-    ("GRC-SALT", "Iodised salt 500g", "អំបិល", "GROCERY", None, "0.40", "0.22", 20, 2, False),
-    ("GRC-SARDINE", "Canned sardines 155g", "ត្រីខកំប៉ុង", "GROCERY", None, "1.00", "0.62", 24, 3, False),
-    ("GRC-EGG-10", "Eggs, pack of 10", "ពងមាន់", "GROCERY", None, "1.80", "1.30", 10, 5, False),
-    ("GRC-COFFEE-3IN1", "3-in-1 coffee, box of 20", "កាហ្វេ ៣ក្នុង១", "GROCERY", None, "3.50", "2.40", 12, 3, False),
-    ("GRC-CONDENSED", "Condensed milk 380g", "ទឹកដោះគោខាប់", "GROCERY", "SUNRISE", "1.20", "0.78", 24, 4, False),
-    ("FRS-MILK-1L", "Fresh milk 1L", "ទឹកដោះគោស្រស់", "FRESH", "SUNRISE", "2.20", "1.50", 12, 5, True),
-    ("FRS-YOGURT", "Yogurt cup 100g", "យ៉ាអួ", "FRESH", "SUNRISE", "0.60", "0.35", 24, 4, True),
-    ("FRS-BREAD", "Sandwich bread loaf", "នំប៉័ង", "FRESH", None, "1.30", "0.80", 10, 5, False),
-    ("HOM-DETERGENT", "Laundry detergent 1kg", "ម្សៅសាប៊ូ", "HOME", "LOTUS", "3.20", "2.20", 12, 2, False),
-    ("HOM-DISHWASH", "Dishwashing liquid 500ml", "ទឹកលាងចាន", "HOME", "LOTUS", "1.40", "0.85", 12, 2, False),
-    ("HOM-TISSUE-10", "Toilet paper, 10 rolls", "ក្រដាសអនាម័យ", "HOME", "LOTUS", "3.80", "2.70", 6, 2, False),
-    ("HOM-SOAP", "Bath soap 90g", "សាប៊ូដុំ", "HOME", "LOTUS", "1.20", "0.70", 48, 3, False),
-    ("HOM-TRASHBAG", "Trash bags, roll of 20", "ថង់សំរាម", "HOME", None, "1.50", "0.90", 20, 1, False),
-    ("HOM-MOSQUITO", "Mosquito coils, box of 10", "ធូបដុតមូស", "HOME", None, "0.80", "0.45", 30, 2, False),
-    ("CAR-SHAMPOO", "Shampoo 400ml", "សាប៊ូកក់សក់", "CARE", "PURE", "4.50", "3.10", 12, 2, False),
-    ("CAR-TOOTHPASTE", "Toothpaste 150g", "ថ្នាំដុសធ្មេញ", "CARE", "PURE", "1.60", "1.00", 24, 2, False),
-    ("CAR-TOOTHBRUSH", "Toothbrush", "ច្រាសដុសធ្មេញ", "CARE", "PURE", "0.90", "0.50", 24, 1, False),
-    ("CAR-PADS", "Sanitary pads, pack of 10", "សំឡីអនាម័យ", "CARE", "PURE", "2.20", "1.50", 24, 1, False),
-    ("CAR-LOTION", "Body lotion 200ml", "ឡេលាបខ្លួន", "CARE", "PURE", "3.90", "2.60", 12, 1, False),
-    ("CAR-FACEWASH", "Face wash 100g", "ទឹកលាងមុខ", "CARE", "PURE", "3.20", "2.10", 12, 1, False),
-]
-FAVOURITES = {"DRK-COLA-330", "DRK-WATER-500", "DRK-BEER-330", "GRC-NOODLE", "GRC-EGG-10", "FRS-BREAD", "DRK-COFFEE-CAN", "SNK-CHIPS-50"}
-FIRST = ["Sok", "Dara", "Sophea", "Vanna", "Chenda", "Rithy", "Bopha", "Kosal", "Malis", "Nary", "Visal", "Sreyneang", "Piseth", "Sokunthea", "Vibol", "Channary", "Ratha", "Sothea"]
-LAST = ["Chan", "Kim", "Sok", "Heng", "Lim", "Meas", "Prak", "Ouk", "Seng", "Tep", "Yim", "Nhem"]
+# Sample catalogue (products, categories, brands, suppliers, names) lives in scripts/demo_catalogue.py.
+FIRST, LAST = FIRST_NAMES, LAST_NAMES
 CASHIER2 = ("cashier2", "CASHIER", "Srey Mom Cashier")
 PINS = {"cashier": "1593", "cashier2": "2580", "manager": "2468"}
 PDF = "data:application/pdf;base64," + base64.b64encode(b"%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n").decode()
@@ -340,8 +288,8 @@ async def build_catalogue(shop: Shop, start) -> None:
     for branch, code, name in ((tk, "TK1", "Toul Kork Counter 1"), (tk, "TK2", "Toul Kork Counter 2"), (bkk, "BKK1", "BKK Counter 1")):
         terminals[code] = (await api.post("owner", "terminals", {"code": code, "name": name, "branch_id": branch["id"], "default_location_id": place[branch["code"]][1]}))["id"]
     await restrict_branches({"cashier": tk["id"], "sales": tk["id"], "branch": tk["id"], "cashier2": bkk["id"]})
-    shop.tills = [Till("TK1", terminals["TK1"], "cashier", tk["id"], *place["TK"], sales_per_day=(18, 30)),
-                  Till("BKK1", terminals["BKK1"], "cashier2", bkk["id"], *place["BKK"], sales_per_day=(8, 16))]
+    shop.tills = [Till("TK1", terminals["TK1"], "cashier", tk["id"], *place["TK"], sales_per_day=(24, 38)),
+                  Till("BKK1", terminals["BKK1"], "cashier2", bkk["id"], *place["BKK"], sales_per_day=(12, 22))]
 
     cats = {code: (await api.post("owner", "categories", {"code": code, "name_en": name, "name_km": km, "default_tax_code_id": vat["id"]}))["id"] for code, name, km in CATEGORIES}
     brands = {code: (await api.post("owner", "brands", {"code": code, "name": name}))["id"] for code, name in BRANDS}
@@ -367,8 +315,8 @@ async def build_catalogue(shop: Shop, start) -> None:
     groups = {}
     for code, name, pct in (("WHOLESALE", "Wholesale buyers", "5"), ("VIP", "VIP members", "3"), ("STAFF", "Staff purchases", "10")):
         groups[code] = (await api.post("owner", "customer-groups", {"code": code, "name": name, "discount_pct": pct}))["id"]
-    for i in range(28):
-        group = "WHOLESALE" if i < 4 else "VIP" if i < 10 else None
+    for i in range(60):
+        group = "WHOLESALE" if i < 8 else "VIP" if i < 20 else "STAFF" if i < 24 else None
         name = f"{rng.choice(FIRST)} {rng.choice(LAST)}" + (" Mini Mart (demo)" if group == "WHOLESALE" else " (demo)")
         body = {"name": name, "phone": f"0{rng.choice([12, 15, 17, 77, 89, 96])} {rng.randint(100, 999)} {rng.randint(100, 999)}", **({"group_id": groups[group]} if group else {})}
         shop.customers.append((await api.post("owner", "customers", body))["id"])
@@ -544,6 +492,11 @@ async def one_sale(shop: Shop, till: Till, stock_left: dict[str, Decimal], *, fi
         return held
     total = Decimal(sale["grand_total"])
     method = rng.choices(["CASH_USD", "CASH_KHR", "QR", "CARD"], weights=[46, 22, 24, 8])[0]
+    if any(item.expiry for item, _ in lines):
+        # Dated stock can expire on the shelf, so finalize may be refused. A cash sale can then be
+        # cancelled with a drawer refund; a card or QR sale cannot be cancelled until the provider
+        # refunds it, which would leave a paid but unfinished sale behind.
+        method = "CASH_USD"
     if method == "CASH_USD":
         tender = next(x for x in (total, *(Decimal(v) for v in (1, 2, 5, 10, 20, 50, 100))) if x >= total and (x == total or rng.random() < 0.8)) if rng.random() < 0.15 else \
             next(Decimal(v) for v in (1, 2, 5, 10, 20, 50, 100) if Decimal(v) >= total)
@@ -619,6 +572,8 @@ async def promotions(shop: Shop, start, today) -> None:
         ("NEWYEAR-DRINKS", "Drinks 10% off (ended)", ["DRK-OJ-1L", "DRK-GTEA-500", "DRK-SOY-250"], "10", start + timedelta(days=8), start + timedelta(days=22)),
         ("SNACK-WEEK", "Snack week 15% off", ["SNK-CHIPS-50", "SNK-CASSAVA", "SNK-CHOCO"], "15", today - timedelta(days=10), today + timedelta(days=10)),
         ("CARE-NEXT", "Personal care 12% off (upcoming)", ["CAR-SHAMPOO", "CAR-LOTION"], "12", today + timedelta(days=5), today + timedelta(days=20)),
+        ("HOT-SEASON", "Ice cream and cold drinks 10% off (ended)", ["FRZ-ICECREAM-CUP", "FRZ-ICECREAM-TUB", "DRK-COCONUT"], "10", start + timedelta(days=30), start + timedelta(days=44)),
+        ("BABY-MONTH", "Baby care 8% off", ["BAB-DIAPER-M", "BAB-DIAPER-L", "BAB-WIPES"], "8", today - timedelta(days=6), today + timedelta(days=24)),
     ):
         CLOCK.at = local(min(begin, today) - timedelta(days=1), 9)
         promo = await api.post("owner", "promotions", {"code": code, "name": name, "type": "PRODUCT", "discount_pct": pct, "product_ids": [by_sku[s].id for s in skus],
